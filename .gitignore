@@ -1,0 +1,45 @@
+# Maven build directories
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE-specific files
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Spring Boot specific
+# If you use embedded Tomcat or other servers, ignore temp files
+*.war
+*.ear
+
+# Environment files
+.env
+
+# Backup files
+*.bak
+*.swp
