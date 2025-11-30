@@ -4,6 +4,7 @@ target/
 
 # Logs
 *.log
+.factorypath
 
 # OS-specific files
 .DS_Store
