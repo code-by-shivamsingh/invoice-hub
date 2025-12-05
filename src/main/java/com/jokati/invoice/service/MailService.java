@@ -10,4 +10,5 @@ public class MailService {
     public void sendEmail(String to, String subject, String htmlBody) {
         // Stub: integrate with your mail provider
     }
+    
 }

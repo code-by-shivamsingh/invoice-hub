@@ -246,4 +246,53 @@ public final class EmailTemplates {
             </html>
             """.formatted(safeCompany);
     }
+    
+    
+
+public static String ausschreibung(String shipperProjectId, String shipperCompany,
+                                       String shipperProjectName, String recipientEmail) {
+        String safeProjectId = HtmlUtils.htmlEscape(shipperProjectId == null ? "" : shipperProjectId);
+        String safeCompany   = HtmlUtils.htmlEscape(shipperCompany == null ? "" : shipperCompany);
+        String safeProject   = HtmlUtils.htmlEscape(shipperProjectName == null ? "" : shipperProjectName);
+        String safeRecipient = HtmlUtils.htmlEscape(recipientEmail == null ? "" : recipientEmail);
+
+        return """
+            <html>
+              <head>
+                <meta charset="utf-8"/>
+                <title>Jokati Ausschreibung</title>
+                <style>
+                  body{background:#ffffff;color:#4e5d78;margin:0;font-family:Tahoma,sans-serif}
+                  .container{max-width:600px;margin:0 auto;padding:16px}
+                  .brand{background:#287fb8;color:#fff;padding:12px 16px;border-radius:6px 6px 0 0}
+                  .footer{color:#9ea4b0;font-size:12px;padding:20px 0}
+                  .separator{background:#dee7eb;height:1px;margin:20px 0}
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="brand"><h2>Jokati</h2></div>
+
+                  <p>Sehr geehrte Damen und Herren,</p>
+                  <p>Sie sind eingeladen, ein Angebot für das Projekt <b>%s</b> (%s) der Firma <b>%s</b> abzugeben.</p>
+
+                  <p>Diese Einladung richtet sich an: <b>%s</b>.</p>
+
+                  <p>Bitte melden Sie sich in Ihrem Jokati-Account an, um die Details einzusehen und Ihr Angebot einzureichen.</p>
+
+                  <br/>
+                  <p>Mit freundlichen Grüßen,<br/>Ihr Team Jokati</p>
+
+                  <div class="separator"></div>
+                  <div class="footer">
+                    <p>Jokati GmbH · Karnapp 25 · D-21079 Hamburg</p>
+                    <p>UST.-ID-Nr.: DE3541611057 · Amtsgericht Hamburg HRB – 175722</p>
+                    <p>Geschäftsführer: Jan – Peter Richter</p>
+                  </div>
+                </div>
+              </body>
+            </html>
+            """.formatted(safeProject, safeProjectId, safeCompany, safeRecipient);
+    }
+
 }
