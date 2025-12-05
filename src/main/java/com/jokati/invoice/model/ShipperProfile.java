@@ -4,31 +4,24 @@ package com.jokati.invoice.model;
 import lombok.*;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.*;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.Map;
 
-@Document(collection = "users")
+@Document(collection = "shipper-profile")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class ShipperProfile {
 
+    /** equals projectId in Node */
     @Id
     private ObjectId id;
 
-    @Indexed
-    private String firebaseId;
-
-    private String email;
-    private String company;
-    private String firstName;
-    private String lastName;
-
-    private Boolean loggedIn;
-    private Instant created;
+    /** dynamic payload equivalent to {strict:false} */
+    private Map<String, Object> profile;
 
     @CreatedDate
     private Instant createdAt;

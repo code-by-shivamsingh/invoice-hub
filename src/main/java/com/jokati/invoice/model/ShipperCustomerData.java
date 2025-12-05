@@ -1,34 +1,27 @@
-
 package com.jokati.invoice.model;
 
 import lombok.*;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.*;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.Map;
 
-@Document(collection = "users")
+@Document(collection = "shipper-customer-data")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class ShipperCustomerData {
 
     @Id
     private ObjectId id;
 
-    @Indexed
-    private String firebaseId;
-
-    private String email;
-    private String company;
-    private String firstName;
-    private String lastName;
-
-    private Boolean loggedIn;
-    private Instant created;
+    /**
+     * Dynamic payload container (equivalent to Mongoose {strict:false}).
+     */
+    private Map<String, Object> data;
 
     @CreatedDate
     private Instant createdAt;
