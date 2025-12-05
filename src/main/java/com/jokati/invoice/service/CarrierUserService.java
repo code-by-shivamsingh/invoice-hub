@@ -1,0 +1,15 @@
+
+package com.jokati.invoice.service;
+
+import com.jokati.invoice.dto.CarrierAddressDTO;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CarrierUserService {
+
+    // TODO: Implement Firebase or your user creation logic here
+    public void createNewUser(CarrierAddressDTO carrier, String initialPassword) {
+        // e.g., call Firebase Admin SDK / your identity provider
+        // For now, it's a stub
+    }
+}
