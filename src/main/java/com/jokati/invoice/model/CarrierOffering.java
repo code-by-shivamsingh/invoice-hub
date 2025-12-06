@@ -23,5 +23,9 @@ public class CarrierOffering {
 
     // Keep dynamic payload like Mongoose { strict:false }
     private Map<String, Object> companyProfile; // contains { company, ... }
-    private Map<String, Object> payload;        // store remaining fields if desired
+    private Map<String, Object> payload; // store remaining fields if desired
+    private Map<String, Object> freightCalculationBasis;
+    private Map<String, Object> extraCosts;
+    private Map<String, Object> rates;
+
 }

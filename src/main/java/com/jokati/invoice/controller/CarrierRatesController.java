@@ -33,9 +33,16 @@ public class CarrierRatesController {
             return ResponseEntity.ok(Map.of());
         }
 
-        return service.findById(projectId)
-                .map(doc -> ResponseEntity.ok(doc))
-                .orElse(ResponseEntity.ok(Map.of()));
+        // Avoid type mismatch by not mixing ResponseEntity<CarrierRates> with ResponseEntity<Map>
+        var maybe = service.findById(projectId); // Optional<CarrierRates>
+        if (maybe.isEmpty()) {
+            return ResponseEntity.ok(Map.of()); // return {}
+        }
+        return ResponseEntity.ok(maybe.get());
+        // Alternative functional style:
+        // return service.findById(projectId)
+        //         .<ResponseEntity<?>>map(ResponseEntity::ok)
+        //         .orElseGet(() -> ResponseEntity.ok(Map.of()));
     }
 
     /**

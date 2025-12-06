@@ -43,9 +43,16 @@ public class ShipperConfirmationController {
             return ResponseEntity.ok(Map.of());
         }
 
-        return service.findById(projectId)
-                .map(doc -> ResponseEntity.ok(doc))
-                .orElse(ResponseEntity.ok(Map.of()));
+        var maybe = service.findById(projectId); // Optional<ShipperConfirmation>
+        if (maybe.isEmpty()) {
+            return ResponseEntity.ok(Map.of()); // {}
+        }
+        return ResponseEntity.ok(maybe.get());
+
+        // Alternative functional style (also valid):
+        // return service.findById(projectId)
+        //         .<ResponseEntity<?>>map(ResponseEntity::ok)
+        //         .orElseGet(() -> ResponseEntity.ok(Map.of()));
     }
 
     /**

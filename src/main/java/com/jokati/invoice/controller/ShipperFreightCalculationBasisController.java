@@ -1,3 +1,4 @@
+
 package com.jokati.invoice.controller;
 
 import com.jokati.invoice.dto.ShipperFreightCalculationBasisRequestDTO;
@@ -6,6 +7,7 @@ import com.jokati.invoice.model.ShipperFreightCalculationBasis;
 import com.jokati.invoice.service.ShipperFreightCalculationBasisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,54 +15,47 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/shipper-freight-calculation-basis")
 @Tag(name = "Shipper Freight Calculation Basis API", description = "Manage freight calculation basis")
 public class ShipperFreightCalculationBasisController {
-	
-	private final ShipperFreightCalculationBasisService service;
-	
-	public ShipperFreightCalculationBasisController(ShipperFreightCalculationBasisService service) {
-		this.service =service;
-	}
-	
-	@Operation(summary = "Create freight calculation basis")
-    @PostMapping
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> create(@RequestBody ShipperFreightCalculationBasisRequestDTO request) {
-        ShipperFreightCalculationBasis entity = ShipperFreightCalculationBasis.builder()
-                .projectId(request.getProjectId())
-                .calculationBasis(request.getCalculationBasis())
-                .build();
 
+    private final ShipperFreightCalculationBasisService service;
+
+    public ShipperFreightCalculationBasisController(ShipperFreightCalculationBasisService service) {
+        this.service = service;
+    }
+
+    @Operation(summary = "Create freight calculation basis")
+    @PostMapping
+    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> create(
+            @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+
+        ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
         ShipperFreightCalculationBasis saved = service.save(entity);
 
-        return ResponseEntity.ok(ShipperFreightCalculationBasisResponseDTO.builder()
-                .message("Freight calculation basis saved successfully")
-                .shipperFreightCalculationBasis(saved)
-                .build());
+        return ResponseEntity.ok(
+                toResponseDTO(saved, "Freight calculation basis saved successfully")
+        );
     }
 
     @Operation(summary = "Update freight calculation basis")
     @PutMapping("/{id}")
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> update(@PathVariable String id,
-                                                                            @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
-        ShipperFreightCalculationBasis entity = ShipperFreightCalculationBasis.builder()
-                .projectId(request.getProjectId())
-                .calculationBasis(request.getCalculationBasis())
-                .build();
+    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> update(
+            @PathVariable String id,
+            @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
 
+        ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
         ShipperFreightCalculationBasis updated = service.update(id, entity);
 
-        return ResponseEntity.ok(ShipperFreightCalculationBasisResponseDTO.builder()
-                .message("Freight calculation basis updated successfully")
-                .shipperFreightCalculationBasis(updated)
-                .build());
+        return ResponseEntity.ok(
+                toResponseDTO(updated, "Freight calculation basis updated successfully")
+        );
     }
 
     @Operation(summary = "Get freight calculation basis by ID")
     @GetMapping("/{id}")
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> get(@PathVariable String id) {
         return service.findById(id)
-                .map(basis -> ResponseEntity.ok(ShipperFreightCalculationBasisResponseDTO.builder()
-                        .message("Freight calculation basis fetched successfully")
-                        .shipperFreightCalculationBasis(basis)
-                        .build()))
+                .map(basis -> ResponseEntity.ok(
+                        toResponseDTO(basis, "Freight calculation basis fetched successfully")
+                ))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -68,11 +63,34 @@ public class ShipperFreightCalculationBasisController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> delete(@PathVariable String id) {
         service.delete(id);
-        return ResponseEntity.ok(ShipperFreightCalculationBasisResponseDTO.builder()
-                .message("Freight calculation basis deleted successfully")
-                .shipperFreightCalculationBasis(null)
-                .build());
+        return ResponseEntity.ok(
+                ShipperFreightCalculationBasisResponseDTO.builder()
+                        .message("Freight calculation basis deleted successfully")
+                        .id(null)
+                        .projectId(null)
+                        .carrierProjectId(null)
+                        .countries(null)
+                        .firebaseId(null)
+                        .extra(null)
+                        .createdAt(null)
+                        .updatedAt(null)
+                        .build()
+        );
     }
 
-}
+    /* ---------- mapping helper ---------- */
 
+    private ShipperFreightCalculationBasisResponseDTO toResponseDTO(ShipperFreightCalculationBasis entity, String message) {
+        return ShipperFreightCalculationBasisResponseDTO.builder()
+                .message(message)
+                .id(entity.getId() != null ? entity.getId().toHexString() : null)
+                .projectId(entity.getProjectId())
+                .carrierProjectId(entity.getCarrierProjectId())
+                .countries(entity.getCountries())
+                .firebaseId(entity.getFirebaseId())
+                .extra(entity.getExtra())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+}
