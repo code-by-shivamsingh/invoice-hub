@@ -31,18 +31,33 @@ public class CarrierFreightCalculationBasisController {
      * GET: mirrors Node GET — fetch by projectId and return ONLY Countries (or {}).
      * Node code returns {} with 200 when not found.
      */
-    @Operation(summary = "Get Countries by projectId")
+    @Operation(summary = "Get Countries by carrierProjectId")
     @GetMapping
-    public ResponseEntity<?> getCountries(@RequestParam(required = false) String projectId) {
-    	log.info("Request getCountries : {}",  projectId);
-        if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
+    public ResponseEntity<?> getCountries(@RequestParam(required = false) String carrierProjectId) {
+    	log.info("Request getCountries : {}",  carrierProjectId);
+        if (carrierProjectId == null || carrierProjectId.isBlank() || "null".equals(carrierProjectId)) {
             return ResponseEntity.ok(Map.of());
         }
 
-        return service.findById(projectId)
+        return service.findByCarrierProjectId(carrierProjectId)
                 .map(doc -> ResponseEntity.ok(doc.getCountries() == null ? Map.of() : doc.getCountries()))
                 .orElse(ResponseEntity.ok(Map.of()));
     }
+    
+    // might be needed in future
+    
+//    @Operation(summary = "Get Countries by projectId")
+//    @GetMapping("/by-project")
+//    public ResponseEntity<?> getCountriesByProjectId(@RequestParam(required = false) String projectId) {
+//    	log.info("Request getCountries : {}",  projectId);
+//        if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
+//            return ResponseEntity.ok(Map.of());
+//        }
+//
+//        return service.findByProjectId(projectId)
+//                .map(doc -> ResponseEntity.ok(doc.getCountries() == null ? Map.of() : doc.getCountries()))
+//                .orElse(ResponseEntity.ok(Map.of()));
+//    }
 
     /**
      * POST: create with _id = carrierProjectId (like Mongoose new doc with given _id).

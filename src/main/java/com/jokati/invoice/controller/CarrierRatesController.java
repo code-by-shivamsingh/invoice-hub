@@ -29,16 +29,16 @@ public class CarrierRatesController {
     /**
      * GET: mirrors Node GET — findById(projectId) and return {} if not found.
      */
-    @Operation(summary = "Get carrier rates by projectId")
+    @Operation(summary = "Get carrier rates by carrierProjectId")
     @GetMapping
-    public ResponseEntity<?> getByProjectId(@RequestParam(required = false) String projectId) {
-    	log.info("Request getByProjectId : {}",  projectId);
-        if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
+    public ResponseEntity<?> getByCarrierProjectId(@RequestParam(required = false) String carrierProjectId) {
+    	log.info("Request getByProjectId : {}",  carrierProjectId);
+        if (carrierProjectId == null || carrierProjectId.isBlank() || "null".equals(carrierProjectId)) {
             return ResponseEntity.ok(Map.of());
         }
 
         // Avoid type mismatch by not mixing ResponseEntity<CarrierRates> with ResponseEntity<Map>
-        var maybe = service.findById(projectId); // Optional<CarrierRates>
+        var maybe = service.findById(carrierProjectId); // Optional<CarrierRates>
         if (maybe.isEmpty()) {
             return ResponseEntity.ok(Map.of()); // return {}
         }

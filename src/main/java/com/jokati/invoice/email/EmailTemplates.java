@@ -9,9 +9,23 @@ import org.springframework.web.util.HtmlUtils;
  */
 public final class EmailTemplates {
 
-    private EmailTemplates() {
+    public EmailTemplates() {
         // utility class
     }
+    
+
+   public String angebotErhaltenTemplate(String carrierCompanyName) {
+        return """
+               <html>
+                 <body>
+                   <p>Sehr geehrte Damen und Herren,</p>
+                   <p>Sie haben ein neues Angebot von <strong>%s</strong> für Ihre Frachtausschreibung erhalten.</p>
+                   <p>Mit freundlichen Grüßen,<br/>Jokati Team</p>
+                 </body>
+               </html>
+               """.formatted(carrierCompanyName == null ? "Ihr Carrier" : carrierCompanyName);
+    }
+
 
     /**
      * Angebot erhalten – template shown to the shipper when an offer was received.

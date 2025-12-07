@@ -3,7 +3,9 @@ package com.jokati.invoice.model;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.util.Map;
 
@@ -15,17 +17,29 @@ import java.util.Map;
 public class CarrierOffering {
 
     @Id
-    private String id;                 // equals carrierProjectId (Mongo _id)
+    private String id;                 // mirrors Mongo _id (Node sets to ObjectId of carrierProjectId)
 
-    private String carrierProjectId;   // also stored for filtering or reference
-    private String projectId;          // used in GET query to fetch offerings by shipper project
-    private String shipperEmail;       // destination email for notification
+    @Indexed
+    private String carrierProjectId;   // filter key in upsert query
 
-    // Keep dynamic payload like Mongoose { strict:false }
-    private Map<String, Object> companyProfile; // contains { company, ... }
-    private Map<String, Object> payload; // store remaining fields if desired
+    @Indexed
+    private String projectId;          // GET query filter
+
+    private String shipperEmail;
+
+    // These fields are object-shaped; ensure DB stores {} when empty (not [])
+    @Field("companyProfile")
+    private Map<String, Object> companyProfile;
+
+    @Field("payload")
+    private Map<String, Object> payload;
+
+    @Field("freightCalculationBasis")
     private Map<String, Object> freightCalculationBasis;
-    private Map<String, Object> extraCosts;
-    private Map<String, Object> rates;
 
+    @Field("extraCosts")
+    private Map<String, Object> extraCosts;
+
+    @Field("rates")
+    private Map<String, Object> rates;
 }

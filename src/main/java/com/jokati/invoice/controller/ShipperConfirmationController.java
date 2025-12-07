@@ -6,8 +6,9 @@ import com.jokati.invoice.dto.ShipperConfirmationRequestDTO;
 import com.jokati.invoice.dto.ShipperConfirmationResponseDTO;
 import com.jokati.invoice.email.EmailTemplates;
 import com.jokati.invoice.model.ShipperConfirmation;
+import com.jokati.invoice.service.EmailService;
 import com.jokati.invoice.service.JokatiUserService;
-import com.jokati.invoice.service.MailService;
+
 import com.jokati.invoice.service.ShipperConfirmationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,11 +29,11 @@ public class ShipperConfirmationController {
 
     private final ShipperConfirmationService service;
     private final JokatiUserService jokatiUserService;
-    private final MailService mailService;
+    private final EmailService mailService;
 
     public ShipperConfirmationController(ShipperConfirmationService service,
                                          JokatiUserService jokatiUserService,
-                                         MailService mailService) {
+                                         EmailService mailService) {
         this.service = service;
         this.jokatiUserService = jokatiUserService;
         this.mailService = mailService;

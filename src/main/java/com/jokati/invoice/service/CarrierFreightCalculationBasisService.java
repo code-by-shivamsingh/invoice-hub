@@ -16,7 +16,7 @@ public class CarrierFreightCalculationBasisService {
         this.repository = repository;
     }
 
-    public Optional<CarrierFreightCalculationBasis> findById(String id) {
+    public Optional<CarrierFreightCalculationBasis> findByCarrierProjectId(String id) {
         return repository.findById(id);
     }
 
@@ -34,5 +34,9 @@ public class CarrierFreightCalculationBasisService {
 
     public void deleteById(String id) {
         repository.deleteById(id);
+    }
+    
+    public Optional<CarrierFreightCalculationBasis> findByProjectId(String id) {
+        return repository.findByProjectId(id);
     }
 }

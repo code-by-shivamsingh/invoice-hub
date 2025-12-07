@@ -7,7 +7,8 @@ import com.jokati.invoice.dto.CarrierConfirmationResponseDTO;
 import com.jokati.invoice.model.CarrierConfirmation;
 import com.jokati.invoice.service.CarrierConfirmationService;
 import com.jokati.invoice.service.CarrierUserService;
-import com.jokati.invoice.service.MailService;
+import com.jokati.invoice.service.EmailService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -28,11 +29,11 @@ public class CarrierConfirmationController {
 
     private final CarrierConfirmationService service;
     private final CarrierUserService carrierUserService;
-    private final MailService mailService;
+    private final EmailService mailService;
 
     public CarrierConfirmationController(CarrierConfirmationService service,
                                          CarrierUserService carrierUserService,
-                                         MailService mailService) {
+                                         EmailService mailService) {
         this.service = service;
         this.carrierUserService = carrierUserService;
         this.mailService = mailService;

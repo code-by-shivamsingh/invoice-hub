@@ -1,6 +1,6 @@
-
 package com.jokati.invoice.dto;
 
+import com.jokati.invoice.model.CarrierOffering;
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,5 +8,5 @@ import lombok.Data;
 @Builder
 public class CarrierOfferingResponseDTO {
     private String message;
-    private Object data; // single doc or list, depending on endpoint
+    private CarrierOffering carrierOffering;
 }
