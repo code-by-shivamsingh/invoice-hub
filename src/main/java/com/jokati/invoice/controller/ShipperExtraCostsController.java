@@ -6,6 +6,9 @@ import com.jokati.invoice.model.ShipperExtraCosts;
 import com.jokati.invoice.service.ShipperExtraCostsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/shipper-extra-costs")
 @Tag(name = "Shipper Extra Costs API", description = "Manage shipper extra costs")
 public class ShipperExtraCostsController {
+	private static final Logger log = LoggerFactory.getLogger(ShipperExtraCostsController.class);
 	private final ShipperExtraCostsService service;
 	public ShipperExtraCostsController (ShipperExtraCostsService service) {
         this.service = service;
@@ -22,6 +26,7 @@ public class ShipperExtraCostsController {
 	@Operation(summary = "Create shipper extra costs")
 	@PostMapping
 	public ResponseEntity<ShipperExtraCostsResponseDTO> create(@RequestBody ShipperExtraCostsRequestDTO request) {
+		log.info("Request create : {}",  request);
 	    // Build entity
 	    ShipperExtraCosts entity = ShipperExtraCosts.builder()
 	            .projectId(request.getProjectId())
@@ -43,6 +48,7 @@ public class ShipperExtraCostsController {
     @PutMapping("/{id}")
     public ResponseEntity<ShipperExtraCostsResponseDTO> update(@PathVariable String id,
                                                                @RequestBody ShipperExtraCostsRequestDTO request) {
+    	log.info("Request update : {}",  request);
         ShipperExtraCosts entity = ShipperExtraCosts.builder()
                 .projectId(request.getProjectId())
                 .extraCosts(request.getExtraCosts())
@@ -59,6 +65,7 @@ public class ShipperExtraCostsController {
     @Operation(summary = "Get shipper extra costs by ID")
     @GetMapping("/{id}")
     public ResponseEntity<ShipperExtraCostsResponseDTO> get(@PathVariable String id) {
+    	log.info("Request get : {}",  id);
         return service.findById(id)
                 .map(costs -> ResponseEntity.ok(ShipperExtraCostsResponseDTO.builder()
                         .message("Extra costs fetched successfully")
@@ -70,6 +77,7 @@ public class ShipperExtraCostsController {
     @Operation(summary = "Delete shipper extra costs by ID")
     @DeleteMapping("/{id}")
     public ResponseEntity<ShipperExtraCostsResponseDTO> delete(@PathVariable String id) {
+    	log.info("Request delete : {}",  id);
         service.delete(id);
         return ResponseEntity.ok(ShipperExtraCostsResponseDTO.builder()
                 .message("Extra costs deleted successfully")

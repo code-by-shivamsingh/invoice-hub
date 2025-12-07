@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +25,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/shipper-templates")
 @RequiredArgsConstructor
 public class ShipperTemplatesController {
+	
+	private static final Logger log = LoggerFactory.getLogger(ShipperTemplatesController.class);
 
     private final ShipperTemplateService service;
 
@@ -34,6 +39,7 @@ public class ShipperTemplatesController {
     )
     @GetMapping
     public ResponseEntity<List<ShipperTemplateResponseDTO>> getByUserId(@RequestParam String userId) {
+    	log.info("Request getByUserId : {}",  userId);
         return ResponseEntity.ok(service.findByUserId(userId));
     }
 
@@ -47,6 +53,7 @@ public class ShipperTemplatesController {
     )
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody ShipperTemplateRequestDTO requestDTO) {
+    	log.info("Request create : {}",  requestDTO);
         var saved = service.create(requestDTO);
         // Mirror Node: on success, return raw doc content (not envelope)
         return ResponseEntity.ok(saved);
@@ -55,6 +62,7 @@ public class ShipperTemplatesController {
     @Operation(summary = "Delete a template by its id (ObjectId hex)")
     @DeleteMapping("/{templateId}")
     public ResponseEntity<Map<String, Object>> deleteById(@PathVariable String templateId) {
+    	log.info("Request deleteById : {}",  templateId);
         service.deleteById(templateId);
         return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
     }
@@ -62,6 +70,7 @@ public class ShipperTemplatesController {
     @Operation(summary = "Delete all templates (use with caution)")
     @DeleteMapping("/all")
     public ResponseEntity<Map<String, Object>> deleteAll() {
+    	log.info("Request deleteAll");
         long count = service.deleteAll();
         return ResponseEntity.ok(Map.of("message", "Deleted documents count: " + count));
     }

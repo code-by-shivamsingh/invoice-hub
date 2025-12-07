@@ -3,6 +3,8 @@ package com.jokati.invoice.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +26,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/shipment")
 @Tag(name = "Shipment API", description = "Operations related to shipment data")
 public class ShipmentController {
-
+	private static final Logger log = LoggerFactory.getLogger(ShipmentController.class);
     private final ShipmentService service;
 
     public ShipmentController(ShipmentService service) {
@@ -34,6 +36,7 @@ public class ShipmentController {
     @Operation(summary = "Get shipment data by projectId")
     @GetMapping
     public ResponseEntity<List<ShipmentData>> getShipmentData(@RequestParam String projectId) {
+    	log.info("Request getShipmentData : {}",  projectId);
         if (projectId == null || projectId.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
@@ -43,7 +46,8 @@ public class ShipmentController {
     @Operation(summary = "Save shipment data batch")
     @PostMapping
     public ResponseEntity<ShipmentResponseDTO> saveShipmentData(@RequestBody ShipmentRequestDTO request) {
-        if (request.getProjectId() == null || request.getShipmentData() == null || request.getShipmentData().isEmpty()) {
+    	log.info("Request saveShipmentData : {}",  request);
+    	if (request.getProjectId() == null || request.getShipmentData() == null || request.getShipmentData().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
@@ -96,6 +100,7 @@ public class ShipmentController {
     @Operation(summary = "Delete shipment data by projectId")
     @DeleteMapping
     public ResponseEntity<ShipmentResponseDTO> deleteShipmentData(@RequestParam String projectId) {
+    	log.info("Request deleteShipmentData : {}",  projectId);
         if (projectId == null || projectId.isBlank()) {
             return ResponseEntity.badRequest().build();
         }

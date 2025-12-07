@@ -6,6 +6,9 @@ import com.jokati.invoice.model.DieselFloater;
 import com.jokati.invoice.service.DieselFloaterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +19,7 @@ import java.util.Map;
 @RequestMapping("/api/diesel-floater")
 @Tag(name = "Diesel Floater API", description = "Manage Diesel Floater data")
 public class DieselFloaterController {
-
+	private static final Logger log = LoggerFactory.getLogger(DieselFloaterController.class);
     private final DieselFloaterService service;
 
     public DieselFloaterController(DieselFloaterService service) {
@@ -26,7 +29,8 @@ public class DieselFloaterController {
     @Operation(summary = "Create or update Diesel Floater data")
     @PutMapping
     public ResponseEntity<DieselFloaterResponseDTO> createOrUpdate(@RequestBody Map<String, Object> dieselFloaterJson) {
-        try {
+    	log.info("Request createOrUpdate : {}",  dieselFloaterJson);
+    	try {
             List<DieselFloater> existingData = service.findAll();
             DieselFloater dieselFloater;
 
@@ -62,6 +66,7 @@ public class DieselFloaterController {
     @Operation(summary = "Get Diesel Floater matrix")
     @GetMapping
     public ResponseEntity<DieselFloaterResponseDTO> getMatrix() {
+    	log.info("Request getMatrix ");
         List<DieselFloater> data = service.findAll();
         if (data.isEmpty()) {
             return ResponseEntity.noContent().build();
@@ -75,6 +80,7 @@ public class DieselFloaterController {
     @Operation(summary = "Get Diesel Floater sources")
     @GetMapping("/sources")
     public ResponseEntity<DieselFloaterResponseDTO> getSources() {
+    	log.info("Request getSources ");
         List<DieselFloater> data = service.findAll();
         if (data.isEmpty()) {
             return ResponseEntity.noContent().build();

@@ -7,6 +7,9 @@ import com.jokati.invoice.model.CarrierFreightCalculationBasis;
 import com.jokati.invoice.service.CarrierFreightCalculationBasisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +20,7 @@ import java.util.Map;
 @Tag(name = "Carrier Freight Calculation Basis API", description = "Manage carrier freight calculation basis")
 public class CarrierFreightCalculationBasisController {
 
+	private static final Logger log = LoggerFactory.getLogger(CarrierFreightCalculationBasisController.class);
     private final CarrierFreightCalculationBasisService service;
 
     public CarrierFreightCalculationBasisController(CarrierFreightCalculationBasisService service) {
@@ -30,6 +34,7 @@ public class CarrierFreightCalculationBasisController {
     @Operation(summary = "Get Countries by projectId")
     @GetMapping
     public ResponseEntity<?> getCountries(@RequestParam(required = false) String projectId) {
+    	log.info("Request getCountries : {}",  projectId);
         if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
             return ResponseEntity.ok(Map.of());
         }
@@ -47,6 +52,8 @@ public class CarrierFreightCalculationBasisController {
     @PostMapping
     public ResponseEntity<CarrierFreightCalculationBasisResponseDTO> create(
             @RequestBody CarrierFreightCalculationBasisRequestDTO request) {
+    	
+    	log.info("Request create : {}",  request);
 
         if (request.getCarrierProjectId() == null || request.getCarrierProjectId().isBlank()) {
             return ResponseEntity.badRequest().body(CarrierFreightCalculationBasisResponseDTO.builder()
@@ -74,9 +81,11 @@ public class CarrierFreightCalculationBasisController {
      */
     @Operation(summary = "Upsert carrier freight calculation basis")
     @PutMapping
-    public ResponseEntity<CarrierFreightCalculationBasisResponseDTO> upsert(
+    public ResponseEntity<CarrierFreightCalculationBasisResponseDTO> update(
             @RequestBody CarrierFreightCalculationBasisRequestDTO request) {
 
+    	log.info("Request update : {}",  request);
+    	
         if (request.getCarrierProjectId() == null || request.getCarrierProjectId().isBlank()) {
             return ResponseEntity.badRequest().body(CarrierFreightCalculationBasisResponseDTO.builder()
                     .message("carrierProjectId is required")
@@ -103,6 +112,7 @@ public class CarrierFreightCalculationBasisController {
     @Operation(summary = "Delete carrier freight calculation basis by projectId (optional)")
     @DeleteMapping("/{projectId}")
     public ResponseEntity<CarrierFreightCalculationBasisResponseDTO> delete(@PathVariable String projectId) {
+    	log.info("Request delete : {}",  projectId);
         service.deleteById(projectId);
         return ResponseEntity.ok(CarrierFreightCalculationBasisResponseDTO.builder()
                 .message("Frachtberechnung gelöscht (falls vorhanden)")

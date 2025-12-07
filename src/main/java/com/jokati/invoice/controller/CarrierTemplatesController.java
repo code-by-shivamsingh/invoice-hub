@@ -8,6 +8,8 @@ import com.jokati.invoice.service.CarrierTemplatesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/carrier-templates")
 @Tag(name = "Carrier Templates API", description = "Manage carrier templates (single document)")
 public class CarrierTemplatesController {
-
+	private static final Logger log = LoggerFactory.getLogger(CarrierTemplatesController.class);
     private final CarrierTemplatesService service;
 
     public CarrierTemplatesController(CarrierTemplatesService service) {
@@ -28,6 +30,7 @@ public class CarrierTemplatesController {
     @Operation(summary = "Get the first (current) carrier templates document")
     @GetMapping
     public ResponseEntity<?> getFirst() {
+    	log.info("Get the first (current) carrier templates document");
         CarrierTemplates first = service.findFirst();
         if (first == null) {
             // Node responds with result[0]; if empty, you returned undefined implicitly.
@@ -44,7 +47,8 @@ public class CarrierTemplatesController {
     @Operation(summary = "Replace all templates with a new document (drops collection)")
     @PostMapping
     public ResponseEntity<CarrierTemplatesResponseDTO> replace(@RequestBody CarrierTemplatesRequestDTO request) {
-        try {
+    	log.info("Request replace : {}",  request);
+    	try {
             CarrierTemplates doc = CarrierTemplates.builder()
                     .id(new ObjectId().toHexString())
                     .template(request.getTemplate())
@@ -70,6 +74,7 @@ public class CarrierTemplatesController {
     @Operation(summary = "Delete all templates (optional)")
     @DeleteMapping
     public ResponseEntity<CarrierTemplatesResponseDTO> deleteAll() {
+    	log.info("Request deleteAll");
         service.deleteAll();
         return ResponseEntity.ok(CarrierTemplatesResponseDTO.builder()
                 .message("All templates deleted (if existed)")

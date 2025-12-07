@@ -11,6 +11,9 @@ import com.jokati.invoice.service.MailService;
 import com.jokati.invoice.service.ShipperConfirmationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api/shipper-confirmation")
 @Tag(name = "Shipper Confirmation API", description = "Create/Update and fetch shipper confirmation")
 public class ShipperConfirmationController {
+	
+	private static final Logger log = LoggerFactory.getLogger(ShipperConfirmationController.class);
 
     private final ShipperConfirmationService service;
     private final JokatiUserService jokatiUserService;
@@ -39,6 +44,7 @@ public class ShipperConfirmationController {
     @Operation(summary = "Get shipper confirmation by projectId")
     @GetMapping
     public ResponseEntity<?> getByProjectId(@RequestParam(required = false) String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
             return ResponseEntity.ok(Map.of());
         }
@@ -48,11 +54,6 @@ public class ShipperConfirmationController {
             return ResponseEntity.ok(Map.of()); // {}
         }
         return ResponseEntity.ok(maybe.get());
-
-        // Alternative functional style (also valid):
-        // return service.findById(projectId)
-        //         .<ResponseEntity<?>>map(ResponseEntity::ok)
-        //         .orElseGet(() -> ResponseEntity.ok(Map.of()));
     }
 
     /**
@@ -62,7 +63,8 @@ public class ShipperConfirmationController {
      */
     @Operation(summary = "Upsert shipper confirmation and optionally invite carriers")
     @PostMapping
-    public ResponseEntity<ShipperConfirmationResponseDTO> upsert(@RequestBody ShipperConfirmationRequestDTO request) {
+    public ResponseEntity<ShipperConfirmationResponseDTO> create(@RequestBody ShipperConfirmationRequestDTO request) {
+    	log.info("Request upsert : {}",  request);
         try {
             final String id = request.getShipperProjectId();
             if (id == null || id.isBlank()) {
@@ -126,7 +128,9 @@ public class ShipperConfirmationController {
     @Operation(summary = "Delete shipper confirmation by projectId (optional)")
     @DeleteMapping("/{projectId}")
     public ResponseEntity<ShipperConfirmationResponseDTO> delete(@PathVariable String projectId) {
+    	log.info("Request delete : {}",  projectId);
         service.deleteById(projectId);
+        log.info("Successfull Delete carrier confirmation by");
         return ResponseEntity.ok(ShipperConfirmationResponseDTO.builder()
                 .message("Shipper confirmation deleted (if existed)")
                 .success(true)

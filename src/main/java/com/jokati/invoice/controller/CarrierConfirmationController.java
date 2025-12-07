@@ -57,7 +57,7 @@ public class CarrierConfirmationController {
 
     @Operation(summary = "Upsert carrier confirmation and optionally notify carriers")
     @PostMapping
-    public ResponseEntity<CarrierConfirmationResponseDTO> upsert(@RequestBody CarrierConfirmationRequestDTO request) {
+    public ResponseEntity<CarrierConfirmationResponseDTO> create(@RequestBody CarrierConfirmationRequestDTO request) {
     	log.info("Request upsert : {}",  request);
         try {
             final String id = request.getCarrierProjectId();

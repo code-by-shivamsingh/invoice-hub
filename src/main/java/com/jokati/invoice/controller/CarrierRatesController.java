@@ -7,6 +7,9 @@ import com.jokati.invoice.model.CarrierRates;
 import com.jokati.invoice.service.CarrierRatesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +19,7 @@ import java.util.Map;
 @RequestMapping("/api/carrier-rates")
 @Tag(name = "Carrier Rates API", description = "Manage carrier rates")
 public class CarrierRatesController {
-
+	private static final Logger log = LoggerFactory.getLogger(CarrierRatesController.class);
     private final CarrierRatesService service;
 
     public CarrierRatesController(CarrierRatesService service) {
@@ -29,6 +32,7 @@ public class CarrierRatesController {
     @Operation(summary = "Get carrier rates by projectId")
     @GetMapping
     public ResponseEntity<?> getByProjectId(@RequestParam(required = false) String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
             return ResponseEntity.ok(Map.of());
         }
@@ -39,10 +43,7 @@ public class CarrierRatesController {
             return ResponseEntity.ok(Map.of()); // return {}
         }
         return ResponseEntity.ok(maybe.get());
-        // Alternative functional style:
-        // return service.findById(projectId)
-        //         .<ResponseEntity<?>>map(ResponseEntity::ok)
-        //         .orElseGet(() -> ResponseEntity.ok(Map.of()));
+        
     }
 
     /**
@@ -51,7 +52,8 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Upsert carrier rates (POST upsert)")
     @PostMapping
-    public ResponseEntity<CarrierRatesResponseDTO> postUpsert(@RequestBody CarrierRatesRequestDTO request) {
+    public ResponseEntity<CarrierRatesResponseDTO> create(@RequestBody CarrierRatesRequestDTO request) {
+    	log.info("Request create : {}",  request);
         try {
             final String id = request.getCarrierProjectId();
             if (id == null || id.isBlank()) {
@@ -90,7 +92,8 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Upsert carrier rates (PUT upsert)")
     @PutMapping
-    public ResponseEntity<CarrierRatesResponseDTO> putUpsert(@RequestBody CarrierRatesRequestDTO request) {
+    public ResponseEntity<CarrierRatesResponseDTO> update(@RequestBody CarrierRatesRequestDTO request) {
+    	log.info("Request update : {}",  request);
         try {
             final String id = request.getCarrierProjectId();
             if (id == null || id.isBlank()) {
@@ -129,6 +132,7 @@ public class CarrierRatesController {
     @Operation(summary = "Delete carrier rates by id (optional)")
     @DeleteMapping("/{id}")
     public ResponseEntity<CarrierRatesResponseDTO> delete(@PathVariable String id) {
+    	log.info("Request delete : {}",  id);
         service.deleteById(id);
         return ResponseEntity.ok(CarrierRatesResponseDTO.builder()
                 .message("Carrier rates deleted (if existed)")

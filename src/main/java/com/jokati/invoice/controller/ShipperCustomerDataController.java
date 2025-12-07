@@ -10,6 +10,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +23,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/shipper-customer-data")
 @RequiredArgsConstructor
 public class ShipperCustomerDataController {
+	private static final Logger log = LoggerFactory.getLogger(ShipperCustomerDataController.class);
 
     private final ShipperCustomerDataService service;
 
@@ -32,6 +36,7 @@ public class ShipperCustomerDataController {
     )
     @GetMapping
     public ResponseEntity<?> getLatest() {
+    	log.info("Request getLatest");
         var latest = service.getLatest();
         if (latest.isEmpty()) {
             // Mirror Node behavior: return {} if not found
@@ -50,13 +55,15 @@ public class ShipperCustomerDataController {
     )
     @PostMapping
     public ResponseEntity<ShipperCustomerDataResponseDTO> replaceAll(@Valid @RequestBody ShipperCustomerDataRequestDTO requestDTO) {
-        var saved = service.replaceAll(requestDTO);
+    	log.info("Request replaceAll : {}",  requestDTO);
+    	var saved = service.replaceAll(requestDTO);
         return ResponseEntity.status(201).body(saved);
     }
 
     @Operation(summary = "Delete all shipper customer data documents")
     @DeleteMapping
     public ResponseEntity<Map<String, Object>> deleteAll() {
+    	log.info("Request deleteAll");
         long deleted = service.deleteAll();
         return ResponseEntity.ok(Map.of("message", "Deleted documents count: " + deleted));
     }

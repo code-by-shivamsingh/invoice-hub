@@ -7,6 +7,9 @@ import com.jokati.invoice.service.JokatiUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/users")
 @Tag(name = "Users API", description = "Create new Jokati users")
 public class CreateUserController {
-
+	private static final Logger log = LoggerFactory.getLogger(CreateUserController.class);
     private final JokatiUserService userService;
 
     public CreateUserController(JokatiUserService userService) {
@@ -31,6 +34,7 @@ public class CreateUserController {
     @Operation(summary = "Create a new Jokati user")
     @PostMapping
     public ResponseEntity<NewUserResponseDTO> create(@Valid @RequestBody NewUserRequestDTO user) {
+    	log.info("Request create : {}",  user);
         try {
             var created = userService.createNewUser(user);
             return ResponseEntity.ok(

@@ -9,6 +9,9 @@ import com.jokati.invoice.service.CarrierOfferingService;
 import com.jokati.invoice.service.MailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +22,7 @@ import java.util.Map;
 @RequestMapping("/api/carrier-offering")
 @Tag(name = "Carrier Offering API", description = "Manage carrier offerings")
 public class CarrierOfferingController {
+	private static final Logger log = LoggerFactory.getLogger(CarrierOfferingController.class);
 
     private final CarrierOfferingService service;
     private final MailService mailService;
@@ -34,6 +38,7 @@ public class CarrierOfferingController {
     @Operation(summary = "Get carrier offerings by projectId")
     @GetMapping
     public ResponseEntity<?> getByProjectId(@RequestParam(required = false) String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
             // Node returns {} when result falsy; but find() returns an array. We return [] when invalid.
             return ResponseEntity.ok(List.of());
@@ -53,8 +58,9 @@ public class CarrierOfferingController {
      */
     @Operation(summary = "Upsert carrier offering and notify shipper via email")
     @PostMapping
-    public ResponseEntity<CarrierOfferingResponseDTO> upsert(@RequestBody CarrierOfferingRequestDTO request) {
-        try {
+    public ResponseEntity<CarrierOfferingResponseDTO> create(@RequestBody CarrierOfferingRequestDTO request) {
+    	log.info("Request create : {}",  request);
+    	try {
             final String id = request.getCarrierProjectId();
             if (id == null || id.isBlank()) {
                 return ResponseEntity.badRequest().body(CarrierOfferingResponseDTO.builder()
@@ -106,6 +112,7 @@ public class CarrierOfferingController {
     @Operation(summary = "Delete carrier offering by id (optional)")
     @DeleteMapping("/{id}")
     public ResponseEntity<CarrierOfferingResponseDTO> delete(@PathVariable String id) {
+    	log.info("Request delete : {}",  id);
         service.deleteById(id);
         return ResponseEntity.ok(CarrierOfferingResponseDTO.builder()
                 .message("Carrier offering deleted (if existed)")

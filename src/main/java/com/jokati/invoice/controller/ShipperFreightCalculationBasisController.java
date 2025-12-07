@@ -8,6 +8,9 @@ import com.jokati.invoice.service.ShipperFreightCalculationBasisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/shipper-freight-calculation-basis")
 @Tag(name = "Shipper Freight Calculation Basis API", description = "Manage freight calculation basis")
 public class ShipperFreightCalculationBasisController {
+	private static final Logger log = LoggerFactory.getLogger(ShipperFreightCalculationBasisController.class);
 
     private final ShipperFreightCalculationBasisService service;
 
@@ -26,6 +30,7 @@ public class ShipperFreightCalculationBasisController {
     @PostMapping
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> create(
             @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+    	log.info("Request create : {}",  request);
 
         ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
         ShipperFreightCalculationBasis saved = service.save(entity);
@@ -40,6 +45,7 @@ public class ShipperFreightCalculationBasisController {
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> update(
             @PathVariable String id,
             @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+    	log.info("Request update bu id  : {}, and request {}", id, request);
 
         ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
         ShipperFreightCalculationBasis updated = service.update(id, entity);
@@ -52,6 +58,7 @@ public class ShipperFreightCalculationBasisController {
     @Operation(summary = "Get freight calculation basis by ID")
     @GetMapping("/{id}")
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> get(@PathVariable String id) {
+    	log.info("Request get : {}",  id);
         return service.findById(id)
                 .map(basis -> ResponseEntity.ok(
                         toResponseDTO(basis, "Freight calculation basis fetched successfully")
@@ -62,6 +69,7 @@ public class ShipperFreightCalculationBasisController {
     @Operation(summary = "Delete freight calculation basis by ID")
     @DeleteMapping("/{id}")
     public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> delete(@PathVariable String id) {
+    	log.info("Request delete : {}",  id);
         service.delete(id);
         return ResponseEntity.ok(
                 ShipperFreightCalculationBasisResponseDTO.builder()

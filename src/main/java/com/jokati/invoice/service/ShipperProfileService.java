@@ -43,7 +43,7 @@ public class ShipperProfileService {
      * Upsert by _id = projectId (mirrors Node PUT findByIdAndUpdate(..., { upsert: true })).
      */
     @Transactional
-    public ShipperProfileResponseDTO upsert(ShipperProfileRequestDTO req) {
+    public ShipperProfileResponseDTO update(ShipperProfileRequestDTO req) {
         var id = new ObjectId(req.getProjectId());
         var entity = repository.findById(id).orElse(
                 ShipperProfile.builder().id(id).build()

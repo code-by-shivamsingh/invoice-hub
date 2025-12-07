@@ -12,6 +12,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +26,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/shipper-projects")
 @RequiredArgsConstructor
 public class ShipperProjectsController {
+	private static final Logger log = LoggerFactory.getLogger(ShipperProjectsController.class);
 
     private final ShipperProjectService service;
 
@@ -35,6 +39,7 @@ public class ShipperProjectsController {
     )
     @GetMapping
     public ResponseEntity<List<ShipperProjectResponseDTO>> getByUserId(@RequestParam String userId) {
+    	log.info("Request getByUserId : {}",  userId);
         return ResponseEntity.ok(service.findByUserId(userId));
     }
 
@@ -47,6 +52,7 @@ public class ShipperProjectsController {
     )
     @GetMapping("/{projectId}")
     public ResponseEntity<?> getByProjectId(@PathVariable String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         var response = service.getByProjectId(projectId);
         if (response == null) {
             // Mirror Node behavior for "not found": return {}
@@ -66,6 +72,7 @@ public class ShipperProjectsController {
     )
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody ShipperProjectRequestDTO requestDTO) {
+    	log.info("Request create : {}",  requestDTO);
         var saved = service.create(requestDTO);
         // Mirror Node: return raw document content (not an envelope)
         return ResponseEntity.ok(saved);
@@ -83,6 +90,7 @@ public class ShipperProjectsController {
     )
     @PutMapping
     public ResponseEntity<?> update(@Valid @RequestBody ShipperProjectUpdateRequestDTO requestDTO) {
+    	log.info("Request update : {}",  requestDTO);
         var updated = service.update(requestDTO);
         return ResponseEntity.ok(updated);
     }
@@ -96,6 +104,7 @@ public class ShipperProjectsController {
     )
     @DeleteMapping
     public ResponseEntity<?> delete(@RequestParam String projectId) {
+    	log.info("Request delete : {}",  projectId);
         var result = service.deleteByProjectId(projectId);
         return ResponseEntity.ok(Map.of(
                 "message", "Projekt erfolgreich gelöscht",

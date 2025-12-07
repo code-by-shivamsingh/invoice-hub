@@ -10,6 +10,9 @@ import com.jokati.invoice.repository.DieselFloaterRepository;
 import com.jokati.invoice.service.CarrierExtraCostsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +22,7 @@ import java.util.List;
 @RequestMapping("/api/carrier-extra-costs")
 @Tag(name = "Carrier Extra Costs API", description = "Manage carrier extra costs")
 public class CarrierExtraCostsController {
-
+	private static final Logger log = LoggerFactory.getLogger(CarrierExtraCostsController.class);
 
 private final CarrierExtraCostsService service;
     private final CarrierExtraCostsRepository carrierRepo;
@@ -37,6 +40,7 @@ private final CarrierExtraCostsService service;
     @Operation(summary = "Create carrier extra costs")
     @PostMapping
     public ResponseEntity<CarrierExtraCostsResponseDTO> create(@RequestBody CarrierExtraCostsRequestDTO request) {
+    	log.info("Request create : {}",  request);
         CarrierExtraCosts entity = CarrierExtraCosts.builder()
                 .carrierProjectId(request.getCarrierProjectId())
                 .extraCosts(request.getExtraCosts())
@@ -52,6 +56,7 @@ private final CarrierExtraCostsService service;
     @PutMapping("/{id}")
     public ResponseEntity<CarrierExtraCostsResponseDTO> update(@PathVariable String id,
                                                                @RequestBody CarrierExtraCostsRequestDTO request) {
+    	log.info("Request update : {}",  request);
         CarrierExtraCosts entity = CarrierExtraCosts.builder()
                 .carrierProjectId(request.getCarrierProjectId())
                 .extraCosts(request.getExtraCosts())
@@ -66,6 +71,7 @@ private final CarrierExtraCostsService service;
     @Operation(summary = "Get carrier extra costs by ID")
     @GetMapping("/{id}")
     public ResponseEntity<CarrierExtraCostsResponseDTO> get(@PathVariable String id) {
+    	log.info("Request get : {}",  id);
         return service.findById(id)
                 .map(costs -> ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
                         .message("Carrier extra costs fetched successfully")
@@ -77,6 +83,7 @@ private final CarrierExtraCostsService service;
     @Operation(summary = "Delete carrier extra costs by ID")
     @DeleteMapping("/{id}")
     public ResponseEntity<CarrierExtraCostsResponseDTO> delete(@PathVariable String id) {
+    	log.info("Request delete : {}",  id);
         service.delete(id);
         return ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
                 .message("Carrier extra costs deleted successfully")
@@ -89,6 +96,8 @@ private final CarrierExtraCostsService service;
     public ResponseEntity<CarrierExtraCostsResponseDTO> getCarrierExtraCosts(
             @RequestParam(required = false) String projectId,
             @RequestParam(required = false, defaultValue = "false") boolean findAll) {
+    	
+    	log.info("Request getCarrierExtraCosts : {} and find all : {}",  projectId,findAll);
 
         try {
             List<CarrierExtraCosts> extraCostsData = findAll

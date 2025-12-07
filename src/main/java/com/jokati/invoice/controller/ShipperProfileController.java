@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +24,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/shipper-profile")
 @RequiredArgsConstructor
 public class ShipperProfileController {
-
+	private static final Logger log = LoggerFactory.getLogger(ShipperProfileController.class);
     private final ShipperProfileService service;
 
     @Operation(
@@ -33,6 +36,7 @@ public class ShipperProfileController {
     )
     @GetMapping
     public ResponseEntity<?> getByProjectId(@RequestParam String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         var response = service.getByProjectId(projectId);
         if (response == null) {
             // Mirror Node behavior: return {} if not found
@@ -51,7 +55,8 @@ public class ShipperProfileController {
     )
     @PostMapping
     public ResponseEntity<ShipperProfileResponseDTO> create(@Valid @RequestBody ShipperProfileRequestDTO requestDTO) {
-        var saved = service.create(requestDTO);
+    	log.info("Request create : {}",  requestDTO);
+    	var saved = service.create(requestDTO);
         return ResponseEntity.ok(saved);
     }
 
@@ -63,8 +68,9 @@ public class ShipperProfileController {
         }
     )
     @PutMapping
-    public ResponseEntity<Map<String, Object>> upsert(@Valid @RequestBody ShipperProfileRequestDTO requestDTO) {
-        var saved = service.upsert(requestDTO);
+    public ResponseEntity<Map<String, Object>> update(@Valid @RequestBody ShipperProfileRequestDTO requestDTO) {
+    	log.info("Request update : {}",  requestDTO);
+    	var saved = service.update(requestDTO);
         return ResponseEntity.ok(Map.of(
                 "message", "Sendungsprofil aktualisiert",
                 "shipperProfile", saved
@@ -74,6 +80,7 @@ public class ShipperProfileController {
     @Operation(summary = "Delete shipper profile by projectId (_id)")
     @DeleteMapping
     public ResponseEntity<Map<String, Object>> deleteByProjectId(@RequestParam String projectId) {
+    	log.info("Request deleteByProjectId : {}",  projectId);
         service.deleteByProjectId(projectId);
         return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
     }
@@ -81,6 +88,7 @@ public class ShipperProfileController {
     @Operation(summary = "Delete all shipper profiles")
     @DeleteMapping("/all")
     public ResponseEntity<Map<String, Object>> deleteAll() {
+    	log.info("Request deleteByProjectId");
         long count = service.deleteAll();
         return ResponseEntity.ok(Map.of("message", "Deleted documents count: " + count));
     }
