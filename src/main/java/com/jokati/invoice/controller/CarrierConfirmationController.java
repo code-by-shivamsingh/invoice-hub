@@ -13,12 +13,18 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/carrier-confirmation")
 @Tag(name = "Carrier Confirmation API", description = "Create/Update and fetch carrier confirmation")
 public class CarrierConfirmationController {
+	
+	private static final Logger log = LoggerFactory.getLogger(CarrierConfirmationController.class);
 
     private final CarrierConfirmationService service;
     private final CarrierUserService carrierUserService;
@@ -35,6 +41,7 @@ public class CarrierConfirmationController {
     @Operation(summary = "Get carrier confirmation by projectId")
     @GetMapping
     public ResponseEntity<?> getByProjectId(@RequestParam(required = false) String projectId) {
+    	log.info("Request getByProjectId : {}",  projectId);
         if (projectId == null || projectId.isBlank() || "null".equals(projectId)) {
             // Node returns {} with 200 on not found/invalid
             return ResponseEntity.ok(Map.of());
@@ -45,15 +52,13 @@ public class CarrierConfirmationController {
             return ResponseEntity.ok(Map.of());
         }
         return ResponseEntity.ok(maybe.get());
-        // Alternatively:
-        // return service.findById(projectId)
-        //         .<ResponseEntity<?>>map(ResponseEntity::ok)
-        //         .orElseGet(() -> ResponseEntity.ok(Map.of()));
+        
     }
 
     @Operation(summary = "Upsert carrier confirmation and optionally notify carriers")
     @PostMapping
     public ResponseEntity<CarrierConfirmationResponseDTO> upsert(@RequestBody CarrierConfirmationRequestDTO request) {
+    	log.info("Request upsert : {}",  request);
         try {
             final String id = request.getCarrierProjectId();
             if (id == null || id.isBlank()) {
@@ -107,7 +112,10 @@ public class CarrierConfirmationController {
     @Operation(summary = "Delete carrier confirmation by projectId (optional)")
     @DeleteMapping("/{projectId}")
     public ResponseEntity<CarrierConfirmationResponseDTO> delete(@PathVariable String projectId) {
+    	log.info("Request delete : {}",  projectId);
         service.deleteById(projectId);
+       
+        log.info("Successfull Delete carrier confirmation by");
         return ResponseEntity.ok(CarrierConfirmationResponseDTO.builder()
                 .message("Carrier confirmation deleted (if existed)")
                 .data(null)
