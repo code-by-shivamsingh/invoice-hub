@@ -46,6 +46,14 @@ public class ShipperProjectService {
                 .id(new ObjectId())
                 .userId(req.getUserId())
                 .name(req.getName())
+                .street(req.getStreet())
+                .streetNo(req.getStreetNo())
+                .zipCode(req.getZipCode())
+                .city(req.getCity())
+                .country(req.getCountry())
+                .contactName(req.getContactName())
+                .phoneNo(req.getPhoneNo())
+                .email(req.getEmail())
                 .extra(req.getExtra())
                 .build();
 
@@ -114,9 +122,19 @@ public class ShipperProjectService {
                 .id(entity.getId() != null ? entity.getId().toHexString() : null)
                 .userId(entity.getUserId())
                 .name(entity.getName())
+                .street(entity.getStreet())
+                .streetNo(entity.getStreetNo())
+                .zipCode(entity.getZipCode())
+                .city(entity.getCity())
+                .country(entity.getCountry())
+                .contactName(entity.getContactName())
+                .phoneNo(entity.getPhoneNo())
+                .email(entity.getEmail())
                 .extra(entity.getExtra())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }
+
+

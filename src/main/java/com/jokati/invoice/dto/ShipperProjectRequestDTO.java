@@ -16,10 +16,37 @@ import java.util.Map;
 public class ShipperProjectRequestDTO {
 
     @NotBlank(message = "userId is required")
-    private String userId;
+    private String userId;  // Customer No is userId
 
     @NotBlank(message = "name is required")
-    private String name;
+    private String name;  // company name 
+    
+    @NotBlank(message = "Street is required")
+    private String street;
+    
+    @NotBlank(message = "Street No is required")
+    private String streetNo;
+    
+    @NotBlank(message = "ZipCode No is required")
+    private String zipCode;
+    
+    
+    @NotBlank(message = "City No is required")
+    private String city;
+    
+    @NotBlank(message = "Country No is required")
+    private String country;
+    
+    @NotBlank(message = "ContactName No is required")
+    private String contactName;
+    
+    @NotBlank(message = "Phone No is required")
+    private Double phoneNo;
+    
+    @NotBlank(message = "Email Id is required")
+    private String email;
+    
+    
 
     /** Additional dynamic fields, equivalent to Mongoose { strict: false } */
     private Map<String, Object> extra;

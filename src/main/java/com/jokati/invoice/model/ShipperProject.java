@@ -25,6 +25,15 @@ public class ShipperProject {
 
     @Indexed
     private String name;
+    
+    private String street;
+    private String streetNo;
+    private String zipCode;
+    private String city;
+    private String country;
+    private String contactName;
+    private Double phoneNo;
+    private String email;
 
     /** Dynamic fields equivalent to { strict: false } in Mongoose */
     private Map<String, Object> extra;
