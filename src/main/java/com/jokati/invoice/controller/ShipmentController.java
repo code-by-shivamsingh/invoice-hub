@@ -1,114 +1,152 @@
+
 package com.jokati.invoice.controller;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
+import com.jokati.invoice.dto.ShipmentRequestDTO;
+import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
+import com.jokati.invoice.service.ShipmentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.*;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
-import com.jokati.invoice.dto.ShipmentRequestDTO;
-import com.jokati.invoice.dto.ShipmentResponseDTO;
-import com.jokati.invoice.model.ShipmentData;
-import com.jokati.invoice.service.ShipmentService;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.*;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/shipment")
 @Tag(name = "Shipment API", description = "Operations related to shipment data")
 public class ShipmentController {
-	private static final Logger log = LoggerFactory.getLogger(ShipmentController.class);
+
+    private static final Logger log = LoggerFactory.getLogger(ShipmentController.class);
     private final ShipmentService service;
 
     public ShipmentController(ShipmentService service) {
         this.service = service;
     }
 
-    @Operation(summary = "Get shipment data by projectId")
-    @GetMapping
-    public ResponseEntity<List<ShipmentData>> getShipmentData(@RequestParam String projectId) {
-    	log.info("Request getShipmentData : {}",  projectId);
-        if (projectId == null || projectId.isBlank()) {
-            return ResponseEntity.badRequest().build();
+    @Operation(
+        summary = "Get shipment data by projectId",
+        responses = {
+            @ApiResponse(
+                responseCode = "200",
+                description = "Success",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ShipmentSaveResponseDTO.class)
+                )
+            ),
+            @ApiResponse(responseCode = "400", description = "Invalid projectId"),
+            @ApiResponse(responseCode = "404", description = "Project not found")
         }
-        return ResponseEntity.ok(service.getShipmentData(projectId));
+    )
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ShipmentSaveResponseDTO> getShipmentData(@RequestParam @NotBlank String projectId) {
+        log.info("GET /api/shipment projectId={}", projectId);
+        Optional<ShipmentSaveResponseDTO> respOpt = service.getByProjectId(projectId);
+        return respOpt.map(ResponseEntity::ok)
+                      .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
-    @Operation(summary = "Save shipment data batch")
-    @PostMapping
-    public ResponseEntity<ShipmentResponseDTO> saveShipmentData(@RequestBody ShipmentRequestDTO request) {
-    	log.info("Request saveShipmentData : {}",  request);
-    	if (request.getProjectId() == null || request.getShipmentData() == null || request.getShipmentData().isEmpty()) {
+    @Operation(
+        summary = "Save shipment data batch",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ShipmentRequestDTO.class)
+            )
+        ),
+        responses = {
+            @ApiResponse(
+                responseCode = "200",
+                description = "Saved successfully",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ShipmentSaveResponseDTO.class)
+                )
+            ),
+            @ApiResponse(responseCode = "400", description = "Validation error")
+        }
+    )
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ShipmentSaveResponseDTO> saveShipmentData(
+            @Valid @org.springframework.web.bind.annotation.RequestBody ShipmentRequestDTO request) {
+
+        log.info("POST /api/shipment projectId={}, carrierProjectId={}, items={}, append={}",
+                request.getProjectId(),
+                request.getCarrierProjectId(),
+                request.getShipmentData() != null ? request.getShipmentData().size() : 0,
+                request.isAppend());
+
+        if (request.getProjectId() == null || request.getProjectId().isBlank()
+                || request.getShipmentData() == null || request.getShipmentData().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
-        request.getShipmentData().forEach(dto -> {
-            ShipmentData entity = ShipmentData.builder()
-                    .projectId(request.getProjectId())
-                    .shipmentId(dto.getShipmentId())
-                    .shipmentDate(dto.getShipmentDate())
-                    .zipCodeShipper(dto.getZipCodeShipper())
-                    .zipCodeConsignee(dto.getZipCodeConsignee())
-                    .city(dto.getCity())
-                    .country(dto.getCountry())
-                    .length(dto.getLength())
-                    .wide(dto.getWide())
-                    .height(dto.getHeight())
-                    .loadingMeters(dto.getLoadingMeters())
-                    .cubicMeters(dto.getCubicMeters())
-                    .palletCount(dto.getPalletCount())
-                    .packagingType(dto.getPackagingType())
-                    .effectiveWeight(dto.getEffectiveWeight())
-                    .hasPackagingType(dto.getHasPackagingType())
-                    .projectType(dto.getProjectType())
-                    .expressNextDay(dto.getExpressNextDay())
-                    .shortWeekSurcharge(dto.getShortWeekSurcharge())
-                    .bookingAvis(dto.getBookingAvis())
-                    .express12(dto.getExpress12())
-                    .express10(dto.getExpress10())
-                    .express8(dto.getExpress8())
-                    .fixDate(dto.getFixDate())
-                    .eMailAvis(dto.getEMailAvis())
-                    .phoneAvis(dto.getPhoneAvis())
-                    .dangerousGoodsSurcharge(dto.getDangerousGoodsSurcharge())
-                    .carrierCertificate(dto.getCarrierCertificate())
-                    .b2cSurchargeNational(dto.getB2cSurchargeNational())
-                    .b2cSurchargeInternational(dto.getB2cSurchargeInternational())
-                    .securityFee(dto.getSecurityFee())
-                    .insurance(dto.getInsurance())
-                    .porti(dto.getPorti())
-                    .createdAt(LocalDateTime.now().toString())
-                    .build();
-            service.saveShipmentData(entity);
-        });
-
-        return ResponseEntity.ok(ShipmentResponseDTO.builder()
-                .message("Batch saved successfully")
-                .batchSize(request.getShipmentData().size())
-                .build());
+        ShipmentSaveResponseDTO response = service.saveBatch(request);
+        return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Delete shipment data by projectId")
-    @DeleteMapping
-    public ResponseEntity<ShipmentResponseDTO> deleteShipmentData(@RequestParam String projectId) {
-    	log.info("Request deleteShipmentData : {}",  projectId);
-        if (projectId == null || projectId.isBlank()) {
-            return ResponseEntity.badRequest().build();
+    @Operation(
+        summary = "Delete shipment data by projectId",
+        responses = {
+            @ApiResponse(responseCode = "204", description = "Deleted"),
+            @ApiResponse(responseCode = "404", description = "Project not found")
         }
-        service.deleteByProjectId(projectId);
-        return ResponseEntity.ok(ShipmentResponseDTO.builder()
-                .message("Deleted all records for projectId: " + projectId)
-                .batchSize(0)
-                .build());
+    )
+    @DeleteMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> deleteShipmentData(@RequestParam @NotBlank String projectId) {
+        log.info("DELETE /api/shipment projectId={}", projectId);
+        boolean existed = service.deleteByProjectId(projectId);
+        return existed ? ResponseEntity.noContent().build()
+                       : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+
+    // ---------- Controller-level Exception Handling ----------
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", "Validation failed");
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(err -> errors.put(err.getField(), err.getDefaultMessage()));
+        body.put("errors", errors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", "Constraint violation");
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(v -> errors.put(v.getPropertyPath().toString(), v.getMessage()));
+        body.put("errors", errors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", "Malformed JSON request");
+        body.put("error", ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        log.error("Unhandled error", ex);
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", "Internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }
 

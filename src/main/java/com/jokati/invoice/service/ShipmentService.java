@@ -1,30 +1,77 @@
+
 package com.jokati.invoice.service;
 
-
-import com.jokati.invoice.model.ShipmentData;
-import com.jokati.invoice.repository.ShipmentRepository;
+import com.jokati.invoice.dto.ShipmentRequestDTO;
+import com.jokati.invoice.dto.ShipmentItemResponseDTO;
+import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
+import com.jokati.invoice.mapper.ShipmentMapper;
+import com.jokati.invoice.model.ProjectShipmentDocument;
+import com.jokati.invoice.model.ShipmentItemDocument;
+import com.jokati.invoice.repository.ProjectShipmentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ShipmentService {
 
-    private final ShipmentRepository repository;
+    private final ProjectShipmentRepository repository;
 
-    public ShipmentService(ShipmentRepository repository) {
-        this.repository = repository;
+    public Optional<ShipmentSaveResponseDTO> getByProjectId(String projectId) {
+        return repository.findByProjectId(projectId)
+                .map(ProjectShipmentDocument::getShipmentData)
+                .map(list -> list == null ? List.<ShipmentItemDocument>of() : list)
+                .map(list -> list.stream().map(ShipmentMapper::toResponse).collect(Collectors.toList()))
+                .map(resList -> ShipmentSaveResponseDTO.builder().shipmentData(resList).build());
     }
 
-    public List<ShipmentData> getShipmentData(String projectId) {
-        return repository.findByProjectId(projectId);
+    public ShipmentSaveResponseDTO saveBatch(ShipmentRequestDTO request) {
+        ProjectShipmentDocument agg = repository.findByProjectId(request.getProjectId())
+                .orElse(ProjectShipmentDocument.builder()
+                        .projectId(request.getProjectId())
+                        .carrierProjectId(request.getCarrierProjectId())
+                        .createdAt(Instant.now())
+                        .shipmentData(new ArrayList<>())
+                        .build());
+
+        // Always update carrierProjectId from request if provided
+        if (request.getCarrierProjectId() != null && !request.getCarrierProjectId().isBlank()) {
+            agg.setCarrierProjectId(request.getCarrierProjectId());
+        }
+
+        List<ShipmentItemDocument> incoming = request.getShipmentData().stream()
+                .map(ShipmentMapper::toDocument)
+                .toList();
+
+        if (request.isAppend()) {
+            List<ShipmentItemDocument> current = agg.getShipmentData() != null ? agg.getShipmentData() : new ArrayList<>();
+            current.addAll(incoming);
+            agg.setShipmentData(current);
+        } else {
+            agg.setShipmentData(incoming);
+        }
+
+        if (agg.getCreatedAt() == null) agg.setCreatedAt(Instant.now());
+        repository.save(agg);
+
+        List<ShipmentItemResponseDTO> responseItems = agg.getShipmentData().stream()
+                .map(ShipmentMapper::toResponse)
+                .toList();
+
+        return ShipmentSaveResponseDTO.builder()
+                .shipmentData(responseItems)
+                .build();
     }
 
-    public ShipmentData saveShipmentData(ShipmentData shipmentData) {
-        return repository.save(shipmentData);
-    }
-
-    public void deleteByProjectId(String projectId) {
-        repository.deleteByProjectId(projectId);
+    public boolean deleteByProjectId(String projectId) {
+        Optional<ProjectShipmentDocument> existing = repository.findByProjectId(projectId);
+        existing.ifPresent(e -> repository.deleteByProjectId(projectId));
+        return existing.isPresent();
     }
 }
