@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-@Document(collection = "tolerance_limits")
+@Document(collection = "tolerance-limits")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ToleranceLimits {
     @Id
@@ -24,7 +24,7 @@ public class ToleranceLimits {
 
     /** One entry per userId; unique index enforces this rule. */
     @Indexed(unique = true)
-    private String userId;
+    private String companyId;
 
     @DecimalMin(value = "0.0", message = "Freight costs tolerance must be >= 0")
     @DecimalMax(value = "100.0", message = "Freight costs tolerance must be <= 100")

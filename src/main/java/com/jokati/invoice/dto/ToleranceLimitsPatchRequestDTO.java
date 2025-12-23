@@ -11,7 +11,7 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ToleranceLimitsPatchRequestDTO {
 
-	private String userId;
+	private String companyId;
 
     @DecimalMin("0.0") @DecimalMax("100.0")
     private BigDecimal freightCostsPercent;

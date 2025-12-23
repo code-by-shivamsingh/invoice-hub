@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface ToleranceLimitsRepository extends MongoRepository<ToleranceLimits, String> {
-    Optional<ToleranceLimits> findByUserId(String userId);
-    boolean existsByUserId(String userId);
-    void deleteByUserId(String userId);
+    Optional<ToleranceLimits> findByCompanyId(String companyId);
+    boolean existsByCompanyId(String companyId);
+    void deleteByCompanyId(String companyId);
 }

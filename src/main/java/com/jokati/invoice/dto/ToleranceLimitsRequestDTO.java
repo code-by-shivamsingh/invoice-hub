@@ -13,7 +13,7 @@ import java.util.List;
 public class ToleranceLimitsRequestDTO {
 
 	@NotBlank
-    private String userId;
+    private String companyId;
 
     @DecimalMin("0.0")
     @DecimalMax("100.0")

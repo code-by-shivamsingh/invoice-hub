@@ -10,7 +10,7 @@ import java.util.List;
 public class ToleranceLimitsResponseDTO {
 
 private String id;
-    private String userId;
+    private String companyId;
     private BigDecimal freightCostsPercent;
     private BigDecimal standardAdditionalCostsPercent;
     private boolean onlyNegativeDeviation;
