@@ -56,6 +56,7 @@ public class Invoice {
     /** NEW: order total coming from the order system (for comparison) */
     private BigDecimal orderTotal;
 
+    private BigDecimal invoiceDifference;
     /** NEW: billing status label (e.g., "Correct billing" / "Incorrect billing") */
     private String status;
 
