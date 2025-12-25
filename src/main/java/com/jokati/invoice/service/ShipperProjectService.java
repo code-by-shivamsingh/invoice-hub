@@ -28,7 +28,7 @@ public class ShipperProjectService {
                 .toList();
     }
 
-    /** GET by projectId (_id) */
+    /** GET by projectId (_id) – returns null to mirror Node's {} 200 pattern */
     public ShipperProjectResponseDTO getByProjectId(String projectIdHex) {
         ObjectId id;
         try {
@@ -39,7 +39,6 @@ public class ShipperProjectService {
         var entity = repository.findById(id).orElse(null);
         return entity != null ? toResponseDTO(entity) : null;
     }
-    
 
     public ObjectId getProjectIdByCarrier(String userId, String carrierName) throws Exception {
         if (!StringUtils.hasText(userId)) {
@@ -57,12 +56,10 @@ public class ShipperProjectService {
         return project.getId();
     }
 
-
     public String getProjectIdHexByCarrier(String userId, String carrierName) throws Exception {
         ObjectId id = getProjectIdByCarrier(userId, carrierName);
         return id != null ? id.toHexString() : null;
     }
-
 
     /** POST: create with new ObjectId; validate userId and name via @Valid */
     @Transactional
@@ -161,5 +158,3 @@ public class ShipperProjectService {
                 .build();
     }
 }
-
-
