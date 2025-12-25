@@ -111,11 +111,7 @@ public class ShipmentSummaryController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        // If you have method implemented in service:
-        // SummaryInitResult result = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
-
-        // Until then, you could simulate by calling getSummaryInit and letting frontend filter, but better add a service method.
-        SummaryInitResult result = null; // TODO: implement and replace
+         SummaryInitResult result = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
 
         if (result == null) {
             log.warn("No filtered summary for projectId={} shipmentId={}", projectIdHex, shipmentId);

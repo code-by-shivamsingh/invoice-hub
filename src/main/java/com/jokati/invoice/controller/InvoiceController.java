@@ -45,8 +45,8 @@ public class InvoiceController {
             @PathVariable String companyId,
             @RequestParam(required = false) String carrier,
             @RequestParam(required = false) String invoiceNumber,
-            @RequestParam(required = false) String fromDate, // supports yyyy-MM-dd or dd/MM/yyyy
-            @RequestParam(required = false) String toDate     // supports yyyy-MM-dd or dd/MM/yyyy
+            @RequestParam(required = false) String fromDate, 
+            @RequestParam(required = false) String toDate     
     ) {
         return ResponseEntity.ok(
             service.listFiltered(companyId, carrier, invoiceNumber, fromDate, toDate)

@@ -4,362 +4,201 @@ package com.jokati.invoice.service;
 import com.jokati.invoice.dto.ToleranceLimitsResponseDTO;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
-import com.jokati.invoice.model.ShipmentItemDocument;
+import com.jokati.invoice.model.ShipmentSummary;
 import com.jokati.invoice.repository.InvoiceRepository;
+import com.jokati.invoice.service.ShipmentSummaryService.RowSummedTotal;
+import com.jokati.invoice.service.ShipmentSummaryService.ShipmentTotalSummary;
+import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
-
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Objects;
 import com.jokati.invoice.service.ShipperProjectService;
+import com.jokati.invoice.service.EmailService;
 
 /**
- * Orchestrates invoice & shipment reconciliation:
- *  - Resolve project by carrier
- *  - Load shipment data & compute shipment order totals
- *  - Roll-up invoice order total, difference, and percent difference
- *  - Apply tolerance and set invoice status
- *  - Trigger finance emails for accepted cases
- *  - Persist enriched invoice document
+ * End-to-end orchestration for invoice adjudication.
+ *
+ * Flow: 1) Identify Carrier & Company (companyId, seller.company_name) 2)
+ * Resolve project (ShipperProjectsService.getProjectIdByCarrier) 3) Enrich each
+ * shipment by calling ShipmentSummaryService.getSummaryByShipmentId -
+ * orderTotal(shipment) = sum(countriesRowTotal.totalPrice) -
+ * surcharge(shipment) = sum(countriesRowTotal.totalExtraCostsPrice) -
+ * difference = orderTotal - net_amount_eur - status = Correct billing |
+ * Incorrect billing - raw summary attached for UI (optional) 4) Roll-up invoice
+ * totals (Σ orderTotal) - invoiceDifference = orderTotal(invoice) -
+ * invoice_total (totals.grossAmount) - percentDifference = |invoiceDifference|
+ * / invoice_total * 100 5) Get tolerance
+ * (ToleranceService.getTolerance(companyId).freightCostsPercent) 6) Determine
+ * invoice status & Notify via EmailService - Accepted / Tolerance accepted /
+ * Incorrect billing 7) Persist enriched invoice document 8) Respond enriched
+ * InvoiceResponse
+ * 
+ * @param <S>
  */
+
 @Service
-@RequiredArgsConstructor
 @Slf4j
+@RequiredArgsConstructor
 public class InvoiceReconciliationService {
 
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
+	private final InvoiceRepository invoiceRepository;
+	private final ShipperProjectService shipperProjectsService;
+	private final ShipmentSummaryService shipmentSummaryService;
+	private final ToleranceLimitsService toleranceService;
+	private final EmailService emailService;
 
-    private final ShipperProjectService shipperProjectService;
-    private final ShipmentService shipmentService;
-    private final ToleranceLimitsService toleranceService;
-    private final EmailService emailService;
-    private final InvoiceRepository invoiceRepository;
+	private final String templateIdAccepted = "template_accepted";
+	private final String templateIdToleranceAccepted = "template_tolerance_accepted";
 
-    // Email templates & recipients (configure in application.yml)
-    @Value("${finance.email:finance@yourcompany.com}")
-    private String financeEmail;
+	public Invoice reconcileAndPersist(Invoice invoice) throws Exception {
+		final String companyId = safe(invoice.getCompanyId());
+		final String carrierName = invoice.getSeller() != null ? safe(invoice.getSeller().getCompanyName()) : "";
 
-    @Value("${email.templates.accepted:invoice_accepted}")
-    private String templateAccepted;
+		log.info("Reconciling invoice: companyId={}, carrierName={}, invoiceNumber={}, date={}", companyId, carrierName,
+				safe(invoice.getInvoiceNumber()), invoice.getInvoiceDate());
 
-    @Value("${email.templates.toleranceAccepted:invoice_tolerance_accepted}")
-    private String templateToleranceAccepted;
+		final String projectIdHex = shipperProjectsService.getProjectIdHexByCarrier(companyId, carrierName);
+		final ObjectId projectId = toObjectId(projectIdHex);
 
-    /**
-     * Entry point to reconcile & persist an invoice and all its shipments.
-     *
-     * @param invoice   the invoice entity (already built from request DTO)
-     * @return the persisted, enriched invoice (with order totals, differences, statuses, and emailSent)
-     * @throws Exception for missing critical data or service failures
-     */
-    public Invoice reconcileAndPersist(Invoice invoice) throws Exception {
-      log.info("Reconciling invoice. companyId={}, invoiceNumber={}, carrier={}",
-              invoice.getCompanyId(),
-              safe(invoice.getInvoiceNumber()),
-              invoice.getSeller() != null ? safe(invoice.getSeller().getCompanyName()) : "N/A");
+		if (invoice.getShipments() != null) {
+			for (Shipment s : invoice.getShipments()) {
+				enrichShipmentUsingSummary(s, projectId);
+			}
+		}
 
-      validateInvoiceBasics(invoice);
+		BigDecimal invoiceOrderTotal = sumOrZero(invoice.getShipments(), Shipment::getOrderTotal);
+		BigDecimal invoiceTotal = (invoice.getTotals() != null && invoice.getTotals().getGrossAmount() != null)
+				? invoice.getTotals().getGrossAmount().setScale(2, RoundingMode.HALF_UP)
+				: BigDecimal.ZERO;
 
-      // Step 1: get projectId from ShipperProjects service using carrier name
-      final String companyId = invoice.getCompanyId();
-      final String carrierName = invoice.getSeller().getCompanyName();
-      ObjectId projectId = shipperProjectService.getProjectIdByCarrier(companyId, carrierName);
-      log.info("Resolved projectId={} for companyId={} and carrierName={}", projectId.toHexString(), companyId, carrierName);
+		BigDecimal invoiceDifference = invoiceOrderTotal.subtract(invoiceTotal).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal percentDifference = percent(invoiceDifference, invoiceTotal);
 
-      // Step 2 & 3 & 4: For each shipment, load shipment data + compute orderTotal/difference/status
-      if (invoice.getShipments() != null) {
-          for (Shipment s : invoice.getShipments()) {
-              enrichShipmentOrderTotals(s, projectId, companyId);
-          }
-      } else {
-          log.warn("Invoice has no shipments. companyId={}, invoiceNumber={}", companyId, invoice.getInvoiceNumber());
-      }
+		ToleranceLimitsResponseDTO tol = toleranceService.getByCompanyId(companyId);
+		BigDecimal allowedPercent = (tol != null && tol.getFreightCostsPercent() != null)
+				? tol.getFreightCostsPercent().setScale(2, RoundingMode.HALF_UP)
+				: BigDecimal.ZERO;
 
-      // Step 5 & 6: Roll-up invoice totals & persist invoice-level difference/status
-      rollupInvoiceTotalsAndDifference(invoice);
+		String invoiceStatus;
+		boolean emailSent = false;
+		String financeEmail = "satender.gautam@drishnatechnologies.com";// need to chnage in future
 
-      // Step 7: Load tolerance limits
-      var toleranceLimit = toleranceService.getByCompanyId(companyId); // Must expose getFreightCostsPercent()
-      log.info("Loaded tolerance for companyId={}: freightCostsPercent={}",
-              companyId, toleranceLimit != null ? toleranceLimit.getFreightCostsPercent() : null);
+		if (invoiceDifference.compareTo(BigDecimal.ZERO) == 0) {
+			invoiceStatus = "Accepted";
+			emailSent = sendSafe(templateIdAccepted, financeEmail, Map.of("companyId", companyId, "carrierName",
+					carrierName, "projectId", projectIdHex, "invoiceNumber", safe(invoice.getInvoiceNumber())));
+		} else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
+				&& percentDifference.compareTo(allowedPercent) <= 0) {
+			invoiceStatus = "Tolerance accepted";
+			emailSent = sendSafe(templateIdToleranceAccepted, financeEmail,
+					Map.of("companyId", companyId, "carrierName", carrierName, "projectId", projectIdHex,
+							"invoiceNumber", safe(invoice.getInvoiceNumber()), "percentDifference", percentDifference));
+		} else {
+			invoiceStatus = "Incorrect billing";
+		}
 
-      // Step 8 & 9: Decide invoice status, compute percent diff, and handle email notifications
-      decideInvoiceStatusAndNotify(invoice, toleranceLimit);
+		// Shipment summary snapshot for invoice
+		ShipmentSummary snapshot = buildShipmentSummary(invoice);
+		invoice.setShipmentSummary(snapshot);
 
-      // Persist
-      Invoice saved = invoiceRepository.save(invoice);
-      log.info("Invoice reconciliation complete & persisted. id={}, status={}, emailSent={}, orderTotal={}, invoiceDifference={}",
-              saved.getId(), saved.getStatus(), saved.getEmailStatus(), saved.getOrderTotal(), saved.getInvoiceDifference());
+		invoice.setOrderTotal(invoiceOrderTotal);
+		invoice.setInvoiceDifference(invoiceDifference);
+		invoice.setStatus(invoiceStatus);
+		invoice.setEmailStatus(emailSent);
 
-      return saved;
-    }
-
-    // ---------------------- Shipment-level enrichment ----------------------
-
-    /**
-     * Enrich a single shipment:
-     *  - Call ShipmentService to get shipment data for (shipmentId, projectId)
-     *  - Compute orderTotal = freight_cost + extra_cost  [TODO: replace dummy logic]
-     *  - Compute difference = orderTotal - net_amount_eur
-     *  - Set shipment status
-     */
-    private void enrichShipmentOrderTotals(Shipment shipment, ObjectId projectId, String companyId) {
-        log.debug("Enriching shipment. shipmentId={}, projectId={}, companyId={}",
-                safe(shipment.getShipmentId()), projectId != null ? projectId.toHexString() : "null", companyId);
-
-        // Step 2: get shipment data from internal ShipmentService
-
-        List<ShipmentItemDocument> linesForShipment =
-        shipmentService.getShipmentsByShipmentIdAndProjectId(projectId, shipment.getShipmentId());
-        log.debug("all shipments {}:",linesForShipment);
-
-        // Step 3: business logic placeholder
-        // TODO: Replace with real computation from 'data' when available:
-        //  - freight_cost = derive from shipmentData (e.g., base rate, zone, weight, etc.)
-        //  - extra_cost   = sum of ancillary surcharges from shipmentData
-       
-        BigDecimal freightCost = calculateFreightCost(null);; // add data
-        BigDecimal extraCost =  calculateExtraCost(null);;    // add data
-        
-       /*  incase shipment data service give me  freightCost aand extraCost the use them*/
-
-//        if (data != null) {
-//            freightCost = data.getFreightCost(); // TODO ensure shipmentData exposes freightCost
-//            extraCost   = data.getExtraCost();   // TODO ensure shipmentData exposes extraCost
-//        } else {
-            log.warn("ShipmentService returned null data. shipmentId={}, projectId={}", shipment.getShipmentId(), projectId);
-       // }
-
-        BigDecimal orderTotal = safeAdd(freightCost, extraCost);
-
-        shipment.setOrderTotal(orderTotal);
-        log.debug("Shipment orderTotal computed. shipmentId={}, freightCost={}, extraCost={}, orderTotal={}",
-                shipment.getShipmentId(), freightCost, extraCost, orderTotal);
-
-        // Step 4: difference between orderTotal and net_amount_eur from invoice request
-        if (orderTotal == null || shipment.getNetAmountEur() == null) {
-            shipment.setDifference(null);
-            shipment.setStatus("Incorrect billing");
-            log.warn("Missing values for difference calc. shipmentId={}, orderTotal={}, netAmountEur={}",
-                    shipment.getShipmentId(), orderTotal, shipment.getNetAmountEur());
-        } else {
-            BigDecimal diff = orderTotal.subtract(shipment.getNetAmountEur());
-            shipment.setDifference(diff);
-            shipment.setStatus(diff.compareTo(BigDecimal.ZERO) == 0 ? "Correct billing" : "Incorrect billing");
-            log.debug("Shipment difference computed. shipmentId={}, difference={}, status={}",
-                    shipment.getShipmentId(), diff, shipment.getStatus());
-        }
-    }
-
-    // ---------------------- Invoice roll-up ----------------------
-
-    private BigDecimal calculateExtraCost(ShipmentItemDocument data) {
-		// TODO Auto-generated method stub
-		return null;
+		Invoice saved = invoiceRepository.save(invoice);
+		log.info("Invoice saved: id={}, status={}, emailSent={}, date={}", saved.getId(), saved.getStatus(),
+				saved.getEmailStatus(), LocalDate.now());
+		return saved;
 	}
 
-	private BigDecimal calculateFreightCost(ShipmentItemDocument data) {
-		// TODO Auto-generated method stub
-		return null;
+	private void enrichShipmentUsingSummary(Shipment shipment, ObjectId projectId) {
+		final String shipmentId = safe(shipment.getShipmentId());
+		SummaryInitResult summary = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
+
+		BigDecimal orderTotal = BigDecimal.ZERO;
+
+		if (summary != null && summary.getShipmentTotalSummary() != null) {
+			ShipmentTotalSummary totals = summary.getShipmentTotalSummary();
+			Map<String, RowSummedTotal> byCountry = totals.getCountriesRowTotal();
+			if (byCountry != null) {
+				for (RowSummedTotal rt : byCountry.values()) {
+					orderTotal = orderTotal.add(BigDecimal.valueOf(rt.getTotalPrice()));
+				}
+			}
+		} else {
+			log.warn("No summary for shipmentId={}, set orderTotal=0", shipmentId);
+		}
+
+		orderTotal = orderTotal.setScale(2, RoundingMode.HALF_UP);
+		BigDecimal netAmount = shipment.getNetAmountEur() != null
+				? shipment.getNetAmountEur().setScale(2, RoundingMode.HALF_UP)
+				: BigDecimal.ZERO;
+
+		BigDecimal difference = orderTotal.subtract(netAmount).setScale(2, RoundingMode.HALF_UP);
+
+		shipment.setOrderTotal(orderTotal);
+		shipment.setDifference(difference);
+		shipment.setStatus(difference.compareTo(BigDecimal.ZERO) == 0 ? "Correct billing" : "Incorrect billing");
 	}
 
-	/**
-     * Step 5 & 6:
-     *  - invoice.orderTotal = sum of shipments' orderTotal
-     *  - invoice.invoiceDifference = orderTotal - totals.grossAmount
-     *  - persist fields on Invoice entity
-     */
-    private void rollupInvoiceTotalsAndDifference(Invoice invoice) {
-        BigDecimal sumOrderTotal = BigDecimal.ZERO;
-        boolean anyOrderPresent = false;
+	private ShipmentSummary buildShipmentSummary(Invoice invoice) {
+		int totalShipments = invoice.getShipments() == null ? 0 : invoice.getShipments().size();
+		BigDecimal totalWeight = sumOrZero(invoice.getShipments(), Shipment::getWeightKg);
+		return ShipmentSummary.builder().totalShipments(totalShipments).totalWeightKg(totalWeight).build();
+	}
 
-        if (invoice.getShipments() != null) {
-            for (Shipment s : invoice.getShipments()) {
-                if (s.getOrderTotal() != null) {
-                    sumOrderTotal = sumOrderTotal.add(s.getOrderTotal());
-                    anyOrderPresent = true;
-                }
-            }
-        }
+	// --- Helpers & contracts ---
 
-        // If none had orderTotal, keep invoice.orderTotal = null to reflect missing data
-        invoice.setOrderTotal(anyOrderPresent ? sumOrderTotal : null);
+	private BigDecimal sumOrZero(Iterable<Shipment> items, java.util.function.Function<Shipment, BigDecimal> f) {
+		BigDecimal sum = BigDecimal.ZERO;
+		if (items != null) {
+			for (Shipment s : items) {
+				BigDecimal v = f.apply(s);
+				if (v != null)
+					sum = sum.add(v);
+			}
+		}
+		return sum.setScale(2, RoundingMode.HALF_UP);
+	}
 
-        BigDecimal invTotal = (invoice.getTotals() != null) ? invoice.getTotals().getGrossAmount() : null;
-        BigDecimal invoiceDiff = null;
+	private BigDecimal percent(BigDecimal diff, BigDecimal base) {
+		if (base == null || base.abs().compareTo(BigDecimal.ZERO) == 0)
+			return BigDecimal.ZERO;
+		return diff.abs().divide(base, 6, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).setScale(2,
+				RoundingMode.HALF_UP);
+	}
 
-        if (invoice.getOrderTotal() != null && invTotal != null) {
-            invoiceDiff = invoice.getOrderTotal().subtract(invTotal);
-        }
+	private String safe(String s) {
+		return s == null ? "" : s.trim();
+	}
 
-        invoice.setInvoiceDifference(invoiceDiff);
+	private ObjectId toObjectId(String hex) {
+		try {
+			return new ObjectId(hex);
+		} catch (IllegalArgumentException e) {
+			return new ObjectId("000000000000000000000000");
+		}
+	}
 
-        log.info("Invoice roll-up done. invoiceNumber={}, orderTotal={}, invoiceTotal={}, invoiceDifference={}",
-                safe(invoice.getInvoiceNumber()), invoice.getOrderTotal(), invTotal, invoiceDiff);
-    }
-
-    // ---------------------- Status + Tolerance + Email ----------------------
-
-    /**
-     * Step 7, 8, 9:
-     *  - Load tolerance (already passed in)
-     *  - Compute percent difference
-     *  - Decide status:
-     *      Accepted:           difference == 0 → email finance
-     *      Tolerance accepted: difference > 0 && percentDiff <= freightCostsPercent → email finance
-     *      Incorrect billing:  otherwise
-     *  - Persist status & emailSent
-     */
-    private void decideInvoiceStatusAndNotify(Invoice invoice, ToleranceLimitsResponseDTO tolerance) {
-        BigDecimal invTotal = (invoice.getTotals() != null) ? invoice.getTotals().getGrossAmount() : null;
-        BigDecimal diff = invoice.getInvoiceDifference();
-
-        BigDecimal percentDiff = null;
-        if (invTotal != null && diff != null && invTotal.compareTo(BigDecimal.ZERO) != 0) {
-            percentDiff = diff.abs()
-                    .divide(invTotal, 6, RoundingMode.HALF_UP)
-                    .multiply(HUNDRED)
-                    .setScale(2, RoundingMode.HALF_UP);
-        }
-
-        BigDecimal freightTolerancePct = (tolerance != null) ? tolerance.getFreightCostsPercent() : null;
-
-        log.info("Invoice percent diff computed. invoiceNumber={}, percentDiff={}, freightTolerancePct={}",
-                safe(invoice.getInvoiceNumber()), percentDiff, freightTolerancePct);
-
-        // Case A: Accepted (exact match)
-        if (diff != null && diff.compareTo(BigDecimal.ZERO) == 0) {
-            invoice.setStatus("Accepted");
-            sendFinanceEmailSafe(templateAccepted, invoice, "Invoice accepted (exact match)");
-            invoice.setEmailStatus(true);
-            return;
-        }
-
-        // Case B: Over-billing within tolerance
-        boolean overBilling = (diff != null && diff.compareTo(BigDecimal.ZERO) > 0);
-        boolean withinTolerance = (percentDiff != null && freightTolerancePct != null
-                && percentDiff.compareTo(freightTolerancePct) <= 0);
-
-        if (overBilling && withinTolerance) {
-            invoice.setStatus("Tolerance accepted");
-            sendFinanceEmailSafe(templateToleranceAccepted, invoice, "Invoice within freight tolerance");
-            invoice.setEmailStatus(true);
-            return;
-        }
-
-        // Case C: Incorrect billing
-        invoice.setStatus("Incorrect billing");
-        invoice.setEmailStatus(false);
-        log.warn("Invoice marked Incorrect billing. invoiceNumber={}, difference={}, percentDiff={}",
-                safe(invoice.getInvoiceNumber()), diff, percentDiff);
-    }
-
-    // ---------------------- Email helper ----------------------
-
-    private void sendFinanceEmailSafe(String templateId, Invoice invoice, String reason) {
-        try {
-            log.info("Sending finance email. templateId={}, to={}, invoiceNumber={}, reason={}",
-                    templateId, financeEmail, safe(invoice.getInvoiceNumber()), reason);
-
-            // Build a minimal payload. Expand as needed.
-            EmailPayload payload = EmailPayload.builder()
-                    .invoiceNumber(invoice.getInvoiceNumber())
-                    .companyId(invoice.getCompanyId())
-                    .carrier(invoice.getSeller() != null ? invoice.getSeller().getCompanyName() : null)
-                    .orderTotal(invoice.getOrderTotal())
-                    .invoiceTotal(invoice.getTotals() != null ? invoice.getTotals().getGrossAmount() : null)
-                    .difference(invoice.getInvoiceDifference())
-                    .status(invoice.getStatus())
-                    .build();
-            // needs to change and send properhtml payload
-            emailService.sendEmail(templateId, financeEmail, "chnage me with payload");
-            log.info("Finance email sent successfully. invoiceNumber={}", safe(invoice.getInvoiceNumber()));
-        } catch (Exception ex) {
-            // Do not fail the reconciliation on email errors; just log.
-            log.error("Failed to send finance email. invoiceNumber={}, templateId={}, error={}",
-                    safe(invoice.getInvoiceNumber()), templateId, ex.getMessage(), ex);
-        }
-    }
-
-    // ---------------------- Validation & Utils ----------------------
-
-    private void validateInvoiceBasics(Invoice invoice) throws Exception {
-        if (invoice.getSeller() == null || !StringUtils.hasText(invoice.getSeller().getCompanyName())) {
-            throw new Exception("Seller/carrier name is required on invoice");
-        }
-        if (!StringUtils.hasText(invoice.getCompanyId())) {
-            throw new Exception("companyId is required on invoice");
-        }
-        if (invoice.getTotals() == null || invoice.getTotals().getGrossAmount() == null) {
-            throw new Exception("Invoice totals.grossAmount is required");
-        }
-    }
-
-    private String safe(String s) { return s == null ? "" : s; }
-
-    private BigDecimal safeAdd(BigDecimal a, BigDecimal b) {
-        if (a == null && b == null) return null;
-        if (a == null) return b;
-        if (b == null) return a;
-        return a.add(b);
-    }
-
-    // --------- Minimal contract placeholders (adjust to your existing services) ---------
-
-    /**
-     * Tolerance service contract placeholder. Ensure your real service returns at least freightCostsPercent.
-     */
-//    public interface ToleranceService {
-//        ToleranceLimits getTolerance(String companyId);
-//    }
-
-    /**
-     * Internal shipment service contract placeholder.
-     * Must return freightCost & extraCost for (shipmentId, projectId).
-     */
-//    public interface ShipmentService {
-//        ShipmentData getShipmentData(String shipmentId, ObjectId projectId);
-//    }
-
-    /**
-     * Shipper projects service contract placeholder. Already implemented in your codebase.
-     */
-//    public interface ShipperProjectService {
-//        ObjectId getProjectIdByCarrier(String userId, String carrierName);
-//    }
-
-    /**
-     * Email service contract placeholder. Plug your actual implementation.
-     */
-//    public interface EmailService {
-//        void send(String templateId, String to, EmailPayload payload);
-//    }
-
-    // --------- Minimal DTOs used by the orchestrator ---------
-
-    @lombok.Data
-    @lombok.Builder
-    public static class ShipmentData {
-        private BigDecimal freightCost;
-        private BigDecimal extraCost;
-        // Add more fields here when the real business logic is available
-    }
-
-    @lombok.Data
-    @lombok.Builder
-    public static class EmailPayload {
-        private String invoiceNumber;
-        private String companyId;
-        private String carrier;
-        private BigDecimal orderTotal;
-        private BigDecimal invoiceTotal;
-        private BigDecimal difference;
-        private String status;
-    }
+	private boolean sendSafe(String templateId, String to, Map<String, Object> model) {
+		try {
+			if (to == null || to.isBlank()) {
+				log.warn("Email skipped (recipient empty) templateId={}", templateId);
+				return false;
+			}
+			emailService.send(templateId, to, model);
+			return true;
+		} catch (Exception ex) {
+			log.error("Email failed: {}", ex.getMessage(), ex);
+			return false;
+		}
+	}
 }
