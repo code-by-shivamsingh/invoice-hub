@@ -2,6 +2,7 @@
 package com.jokati.invoice.service;
 
 import com.jokati.invoice.dto.ShipperProjectRequestDTO;
+import org.springframework.util.StringUtils;
 import com.jokati.invoice.dto.ShipperProjectResponseDTO;
 import com.jokati.invoice.dto.ShipperProjectUpdateRequestDTO;
 import com.jokati.invoice.model.ShipperProject;
@@ -38,6 +39,30 @@ public class ShipperProjectService {
         var entity = repository.findById(id).orElse(null);
         return entity != null ? toResponseDTO(entity) : null;
     }
+    
+
+    public ObjectId getProjectIdByCarrier(String userId, String carrierName) throws Exception {
+        if (!StringUtils.hasText(userId)) {
+            throw new IllegalArgumentException("userId is required");
+        }
+        if (!StringUtils.hasText(carrierName)) {
+            throw new IllegalArgumentException("carrierName is required");
+        }
+
+        ShipperProject project = repository
+                .findFirstByUserIdAndNameIgnoreCase(userId, carrierName)
+                .orElseThrow(() -> new Exception(
+                        "No shipper project found for userId=" + userId + ", carrierName=" + carrierName));
+
+        return project.getId();
+    }
+
+
+    public String getProjectIdHexByCarrier(String userId, String carrierName) throws Exception {
+        ObjectId id = getProjectIdByCarrier(userId, carrierName);
+        return id != null ? id.toHexString() : null;
+    }
+
 
     /** POST: create with new ObjectId; validate userId and name via @Valid */
     @Transactional

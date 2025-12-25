@@ -14,15 +14,6 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
-
-    public void sendHtml(String to, String subject, String html) throws MessagingException {
-        var msg = mailSender.createMimeMessage();
-        var helper = new MimeMessageHelper(msg, "UTF-8");
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(html, true);
-        mailSender.send(msg);
-    }
     
     public void sendEmail(String to, String subject, String html) throws MessagingException {
         var msg = mailSender.createMimeMessage();

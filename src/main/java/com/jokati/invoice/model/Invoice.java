@@ -59,6 +59,7 @@ public class Invoice {
     private BigDecimal invoiceDifference;
     /** NEW: billing status label (e.g., "Correct billing" / "Incorrect billing") */
     private String status;
+    private Boolean emailStatus;
 
     @CreatedDate private Instant createdAt;
     @LastModifiedDate private Instant updatedAt;

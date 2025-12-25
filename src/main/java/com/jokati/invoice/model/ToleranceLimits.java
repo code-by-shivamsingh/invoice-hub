@@ -35,7 +35,7 @@ public class ToleranceLimits {
     private BigDecimal standardAdditionalCostsPercent;
 
     /** If true, only consider deviations with a negative difference. */
-    private boolean onlyNegativeDeviation;
+    private boolean onlyPositiveDeviation;
 
     @Valid
     @Builder.Default

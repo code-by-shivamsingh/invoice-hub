@@ -98,7 +98,7 @@ public class CarrierOfferingService {
             if (companyName != null && updated.getShipperEmail() != null && !updated.getShipperEmail().isBlank()) {
                 try {
                     String html = templates.angebotErhaltenTemplate(companyName);
-                    emailService.sendHtml(updated.getShipperEmail(), subject, html);
+                    emailService.sendEmail(updated.getShipperEmail(), subject, html);
                 } catch (MessagingException e) {
                     log.warn("Email sending failed to {}: {}", updated.getShipperEmail(), e.getMessage());
                 }

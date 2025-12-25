@@ -26,6 +26,7 @@ public class InvoiceService {
     private final InvoiceRepository repository;
     private final InvoiceMapper mapper;
     private final MongoTemplate mongoTemplate;
+    private final InvoiceReconciliationService invoiceReconciliation;
 
     public InvoiceResponseDTO create(String companyId, InvoiceRequestDTO request) throws Exception {
         if (request.getCompanyId() == null || !companyId.equals(request.getCompanyId())) {
@@ -39,7 +40,11 @@ public class InvoiceService {
         entity.setCompanyId(companyId);
         // status can be provided or computed in mapper during response
         Invoice saved = repository.save(entity);
-        return mapper.toResponse(saved);
+        
+//        // Reconciliation process start
+        Invoice savedfinal = invoiceReconciliation.reconcileAndPersist(saved);
+        return mapper.toResponse(savedfinal);
+ //       return mapper.toResponse(saved);
     }
 
     public InvoiceResponseDTO get(String companyId, String invoiceNumber) throws Exception {

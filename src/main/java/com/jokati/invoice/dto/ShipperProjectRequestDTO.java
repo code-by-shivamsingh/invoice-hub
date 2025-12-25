@@ -40,7 +40,7 @@ public class ShipperProjectRequestDTO {
     @NotBlank(message = "ContactName No is required")
     private String contactName;
     
-    @NotBlank(message = "Phone No is required")
+    // @NotBlank(message = "Phone No is required")
     private Double phoneNo;
     
     @NotBlank(message = "Email Id is required")

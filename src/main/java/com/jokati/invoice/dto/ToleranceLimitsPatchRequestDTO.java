@@ -19,7 +19,7 @@ public class ToleranceLimitsPatchRequestDTO {
     @DecimalMin("0.0") @DecimalMax("100.0")
     private BigDecimal standardAdditionalCostsPercent;
 
-    private Boolean onlyNegativeDeviation;
+    private Boolean onlyPositiveDeviation;
 
 
     @Valid

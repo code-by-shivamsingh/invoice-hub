@@ -52,9 +52,9 @@ public class ShipperFreightCalculationBasisService {
     /**
      * Find by id (hex string) — returns Optional.
      */
-    public Optional<ShipperFreightCalculationBasis> findById(String idHex) {
+    public Optional<ShipperFreightCalculationBasis> findByProjectId(String projectId) {
         try {
-            ObjectId id = new ObjectId(idHex);
+            ObjectId id = new ObjectId(projectId);
             return repository.findById(id);
         } catch (IllegalArgumentException e) {
             // invalid ObjectId format; mirror Node-style behavior by returning empty

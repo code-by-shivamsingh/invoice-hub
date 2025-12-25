@@ -10,6 +10,8 @@ import com.jokati.invoice.model.ShipmentItemDocument;
 import com.jokati.invoice.repository.ProjectShipmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -74,4 +76,25 @@ public class ShipmentService {
         existing.ifPresent(e -> repository.deleteByProjectId(projectId));
         return existing.isPresent();
     }
+
+
+public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId projectId, String shipmentId) {
+        if (projectId == null) {
+            throw new IllegalArgumentException("projectId must not be null");
+        }
+        if (shipmentId == null || shipmentId.isBlank()) {
+            throw new IllegalArgumentException("shipmentId must not be null or blank");
+        }
+
+        String projectIdStr = projectId.toHexString();
+
+        return repository.findByProjectId(projectIdStr)
+                .map(ProjectShipmentDocument::getShipmentData)
+                .filter(Objects::nonNull)
+                .orElseGet(List::of)
+                .stream()
+                .filter(item -> shipmentId.equals(item.getShipmentId())) // matches JSON field "ShipmentId"
+                .collect(Collectors.toList());
+    }
+
 }

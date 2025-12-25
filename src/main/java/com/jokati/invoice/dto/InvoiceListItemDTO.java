@@ -39,6 +39,9 @@ public class InvoiceListItemDTO {
     /** "Correct billing" only when difference == 0 and order_total present; else "Incorrect billing" */
     @JsonProperty("status")
     private String status;
+    
+    @JsonProperty("email_status")
+    private String emailStatus;
 
     /** Include shipments in list response as requested */
     @JsonProperty("shipments")

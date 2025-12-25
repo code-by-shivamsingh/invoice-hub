@@ -196,5 +196,13 @@ public class ShipmentItemDocument {
 
     @Field("undefined")
     private String undefined;
+    
+
+	@Field("HasFP")
+	    private Boolean hasFP;
+	
+	@Field("FPPalletCount")
+	    private Integer fpPalletCount;
+
 }
 

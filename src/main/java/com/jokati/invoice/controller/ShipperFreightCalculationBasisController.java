@@ -56,10 +56,10 @@ public class ShipperFreightCalculationBasisController {
     }
 
     @Operation(summary = "Get freight calculation basis by ID")
-    @GetMapping("/{id}")
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> get(@PathVariable String id) {
-    	log.info("Request get : {}",  id);
-        return service.findById(id)
+    @GetMapping("/{projectId}")
+    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> get(@PathVariable String projectId) {
+    	log.info("Request get : {}",  projectId);
+        return service.findByProjectId(projectId)
                 .map(basis -> ResponseEntity.ok(
                         toResponseDTO(basis, "Freight calculation basis fetched successfully")
                 ))

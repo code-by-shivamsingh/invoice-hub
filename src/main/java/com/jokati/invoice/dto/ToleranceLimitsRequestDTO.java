@@ -23,7 +23,7 @@ public class ToleranceLimitsRequestDTO {
     @DecimalMax("100.0")
     private BigDecimal standardAdditionalCostsPercent;
 
-    private boolean onlyNegativeDeviation;
+    private boolean onlyPositiveDeviation;
 
     @Valid
     private List<ToleranceDTO> ancillaryTolerances;
