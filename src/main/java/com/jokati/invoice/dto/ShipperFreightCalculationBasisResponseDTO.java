@@ -1,9 +1,13 @@
 
 package com.jokati.invoice.dto;
 
-import lombok.*;
 import java.time.Instant;
 import java.util.Map;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Strongly-typed response DTO for ShipperFreightCalculationBasis.

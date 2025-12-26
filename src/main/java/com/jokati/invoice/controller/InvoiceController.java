@@ -1,19 +1,33 @@
 
 package com.jokati.invoice.controller;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.InvoiceListItemDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
 import com.jokati.invoice.dto.InvoiceResponseDTO;
 import com.jokati.invoice.dto.ShipmentDTO;
 import com.jokati.invoice.service.InvoiceService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Tag(name = "Invoices")
 @RestController
@@ -21,62 +35,76 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InvoiceController {
 
+    private static final Logger log = LoggerFactory.getLogger(InvoiceController.class);
+
     private final InvoiceService service;
 
     @Operation(summary = "Create invoice for company (unique by companyId + invoiceNumber)")
     @PostMapping
-    public ResponseEntity<InvoiceResponseDTO> create(
+    public ResponseEntity<ApiResponse<Object>> create(
             @PathVariable String companyId,
-            @Valid @RequestBody InvoiceRequestDTO request) throws Exception {
-        return ResponseEntity.ok(service.create(companyId, request));
+            @Valid @RequestBody InvoiceRequestDTO request) {
+        log.info("Invoice create: companyId={}, invoiceNumber={}", companyId, request.getInvoiceNumber());
+        InvoiceResponseDTO dto = service.create(companyId, request);
+        return ResponseUtil.okObject(dto, "Invoice created successfully");
     }
 
     @Operation(summary = "Get invoice by invoiceNumber for company")
     @GetMapping("/{invoiceNumber}")
-    public ResponseEntity<InvoiceResponseDTO> get(
+    public ResponseEntity<ApiResponse<Object>> get(
             @PathVariable String companyId,
-            @PathVariable String invoiceNumber) throws Exception {
-        return ResponseEntity.ok(service.get(companyId, invoiceNumber));
+            @PathVariable String invoiceNumber) {
+        log.info("Invoice get: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
+        InvoiceResponseDTO dto = service.get(companyId, invoiceNumber);
+        return ResponseUtil.okObject(dto, "Invoice fetched successfully");
     }
 
     @Operation(summary = "Filtered list for UI (Carrier, Invoice Number, From/To date)")
     @GetMapping
-    public ResponseEntity<List<InvoiceListItemDTO>> listFiltered(
+    public ResponseEntity<ApiResponse<Object>> listFiltered(
             @PathVariable String companyId,
             @RequestParam(required = false) String carrier,
             @RequestParam(required = false) String invoiceNumber,
-            @RequestParam(required = false) String fromDate, 
-            @RequestParam(required = false) String toDate     
-    ) {
-        return ResponseEntity.ok(
-            service.listFiltered(companyId, carrier, invoiceNumber, fromDate, toDate)
-        );
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate) {
+        log.info("Invoice listFiltered: companyId={}, carrier={}, invoiceNumber={}, from={}, to={}",
+                companyId, carrier, invoiceNumber, fromDate, toDate);
+
+        List<InvoiceListItemDTO> list = service.listFiltered(companyId, carrier, invoiceNumber, fromDate, toDate);
+        return ResponseUtil.okObject(list, "Invoices fetched successfully");
     }
 
     @Operation(summary = "Replace invoice (PUT) by invoiceNumber for company")
     @PutMapping("/{invoiceNumber}")
-    public ResponseEntity<InvoiceResponseDTO> replace(
+    public ResponseEntity<ApiResponse<Object>> replace(
             @PathVariable String companyId,
             @PathVariable String invoiceNumber,
-            @Valid @RequestBody InvoiceRequestDTO request) throws Exception {
-        return ResponseEntity.ok(service.replace(companyId, invoiceNumber, request));
+            @Valid @RequestBody InvoiceRequestDTO request) {
+        log.info("Invoice replace: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
+        InvoiceResponseDTO dto = service.replace(companyId, invoiceNumber, request);
+        return ResponseUtil.okObject(dto, "Invoice replaced successfully");
     }
 
     @Operation(summary = "Delete invoice by invoiceNumber for company")
     @DeleteMapping("/{invoiceNumber}")
-    public ResponseEntity<Void> delete(
+    public ResponseEntity<ApiResponse<Object>> delete(
             @PathVariable String companyId,
-            @PathVariable String invoiceNumber) throws Exception {
+            @PathVariable String invoiceNumber) {
+        log.info("Invoice delete: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
         service.delete(companyId, invoiceNumber);
-        return ResponseEntity.noContent().build();
+        // Consistent with your other controllers: 200 with {} and message in envelope
+        return ResponseUtil.okEmpty("Invoice deleted successfully");
     }
 
     @Operation(summary = "Add/replace a shipment in the invoice by shipmentId")
     @PostMapping("/{invoiceNumber}/shipments")
-    public ResponseEntity<InvoiceResponseDTO> addShipment(
+    public ResponseEntity<ApiResponse<Object>> addShipment(
             @PathVariable String companyId,
             @PathVariable String invoiceNumber,
-            @Valid @RequestBody ShipmentDTO dto) throws Exception {
-        return ResponseEntity.ok(service.addShipment(companyId, invoiceNumber, dto));
+            @Valid @RequestBody ShipmentDTO dto) {
+        log.info("Invoice addShipment: companyId={}, invoiceNumber={}, shipmentId={}",
+                companyId, invoiceNumber, dto.getShipmentId());
+        InvoiceResponseDTO response = service.addShipment(companyId, invoiceNumber, dto);
+        return ResponseUtil.okObject(response, "Shipment added to invoice successfully");
     }
 }

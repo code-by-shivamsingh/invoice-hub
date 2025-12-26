@@ -1,11 +1,12 @@
 
 package com.jokati.invoice.service;
 
-import com.jokati.invoice.model.CarrierRates;
-import com.jokati.invoice.repository.CarrierRatesRepository;
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+import com.jokati.invoice.model.CarrierRates;
+import com.jokati.invoice.repository.CarrierRatesRepository;
 
 @Service
 public class CarrierRatesService {

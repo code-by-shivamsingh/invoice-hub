@@ -1,10 +1,13 @@
 
 package com.jokati.invoice.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import lombok.*;
-
 import java.util.Map;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Mirrors Node payload for ShipperProfile; keeps it flexible via Map.

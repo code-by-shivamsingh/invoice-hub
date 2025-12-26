@@ -1,6 +1,14 @@
 
 package com.jokati.invoice.mapper;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Mappings;
+import org.springframework.web.util.HtmlUtils;
+
 import com.jokati.invoice.dto.ChargesDTO;
 import com.jokati.invoice.dto.InvoiceListItemDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
@@ -9,25 +17,12 @@ import com.jokati.invoice.dto.PartyDTO;
 import com.jokati.invoice.dto.ShipmentDTO;
 import com.jokati.invoice.dto.ShipmentSummaryDTO;
 import com.jokati.invoice.dto.TotalsDTO;
-
 import com.jokati.invoice.model.Charges;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Party;
 import com.jokati.invoice.model.Shipment;
 import com.jokati.invoice.model.ShipmentSummary;
 import com.jokati.invoice.model.Totals;
-
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.Mappings;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import org.springframework.web.util.HtmlUtils;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
 
 
 @Mapper(componentModel = "spring")

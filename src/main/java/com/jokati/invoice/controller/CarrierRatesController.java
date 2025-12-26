@@ -1,25 +1,36 @@
 
 package com.jokati.invoice.controller;
 
-import com.jokati.invoice.dto.CarrierRatesRequestDTO;
-import com.jokati.invoice.dto.CarrierRatesResponseDTO;
-import com.jokati.invoice.model.CarrierRates;
-import com.jokati.invoice.service.CarrierRatesService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.CarrierRatesRequestDTO;
+import com.jokati.invoice.model.CarrierRates;
+import com.jokati.invoice.service.CarrierRatesService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/carrier-rates")
 @Tag(name = "Carrier Rates API", description = "Manage carrier rates")
 public class CarrierRatesController {
-	private static final Logger log = LoggerFactory.getLogger(CarrierRatesController.class);
+    private static final Logger log = LoggerFactory.getLogger(CarrierRatesController.class);
     private final CarrierRatesService service;
 
     public CarrierRatesController(CarrierRatesService service) {
@@ -31,19 +42,17 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Get carrier rates by carrierProjectId")
     @GetMapping
-    public ResponseEntity<?> getByCarrierProjectId(@RequestParam(required = false) String carrierProjectId) {
-    	log.info("Request getByProjectId : {}",  carrierProjectId);
+    public ResponseEntity<ApiResponse<Object>> getByCarrierProjectId(@RequestParam(required = false) String carrierProjectId) {
+        log.info("Request getByProjectId : {}", carrierProjectId);
         if (carrierProjectId == null || carrierProjectId.isBlank() || "null".equals(carrierProjectId)) {
-            return ResponseEntity.ok(Map.of());
+            return ResponseUtil.ok(Map.of(), "OK");
         }
 
-        // Avoid type mismatch by not mixing ResponseEntity<CarrierRates> with ResponseEntity<Map>
         var maybe = service.findById(carrierProjectId); // Optional<CarrierRates>
         if (maybe.isEmpty()) {
-            return ResponseEntity.ok(Map.of()); // return {}
+            return ResponseUtil.ok(Map.of(), "OK"); // return {} in data
         }
-        return ResponseEntity.ok(maybe.get());
-        
+        return ResponseUtil.ok(maybe.get(), "Carrier rates fetched successfully");
     }
 
     /**
@@ -52,38 +61,29 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Upsert carrier rates (POST upsert)")
     @PostMapping
-    public ResponseEntity<CarrierRatesResponseDTO> create(@RequestBody CarrierRatesRequestDTO request) {
-    	log.info("Request create : {}",  request);
-        try {
-            final String id = request.getCarrierProjectId();
-            if (id == null || id.isBlank()) {
-                return ResponseEntity.badRequest().body(CarrierRatesResponseDTO.builder()
-                        .message("carrierProjectId is required")
-                        .carrierRates(null)
-                        .build());
-            }
+    public ResponseEntity<ApiResponse<CarrierRates>> create(@Valid @RequestBody CarrierRatesRequestDTO request) {
+        log.info("Request create : {}", request);
 
-            CarrierRates entity = CarrierRates.builder()
-                    .id(id)
-                    .carrierProjectId(id)
-                    .projectId(request.getProjectId())
-                    .rates(request.getRates())
-                    .payload(request.getPayload())
-                    .build();
-
-            CarrierRates saved = service.upsert(id, entity);
-
-            return ResponseEntity.ok(CarrierRatesResponseDTO.builder()
-                    .message("Tarif aktualisiert")
-                    .carrierRates(saved)
-                    .build());
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(CarrierRatesResponseDTO.builder()
-                    .message("Tarife Speichern fehlgeschlagen: " + e.getMessage())
-                    .carrierRates(null)
-                    .build());
+        final String id = request.getCarrierProjectId();
+        if (id == null || id.isBlank()) {
+            // Let global exception handler return standardized error
+            throw new com.jokati.invoice.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "INVALID_ARGUMENT",
+                    "carrierProjectId is required"
+            );
         }
+
+        CarrierRates entity = CarrierRates.builder()
+                .id(id)
+                .carrierProjectId(id)
+                .projectId(request.getProjectId())
+                .rates(request.getRates())
+                .payload(request.getPayload())
+                .build();
+
+        CarrierRates saved = service.upsert(id, entity);
+        return ResponseUtil.ok(saved, "Tarif aktualisiert");
     }
 
     /**
@@ -92,38 +92,28 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Upsert carrier rates (PUT upsert)")
     @PutMapping
-    public ResponseEntity<CarrierRatesResponseDTO> update(@RequestBody CarrierRatesRequestDTO request) {
-    	log.info("Request update : {}",  request);
-        try {
-            final String id = request.getCarrierProjectId();
-            if (id == null || id.isBlank()) {
-                return ResponseEntity.badRequest().body(CarrierRatesResponseDTO.builder()
-                        .message("carrierProjectId is required")
-                        .carrierRates(null)
-                        .build());
-            }
+    public ResponseEntity<ApiResponse<CarrierRates>> update(@Valid @RequestBody CarrierRatesRequestDTO request) {
+        log.info("Request update : {}", request);
 
-            CarrierRates entity = CarrierRates.builder()
-                    .id(id)
-                    .carrierProjectId(id)
-                    .projectId(request.getProjectId())
-                    .rates(request.getRates())
-                    .payload(request.getPayload())
-                    .build();
-
-            CarrierRates saved = service.upsert(id, entity);
-
-            return ResponseEntity.ok(CarrierRatesResponseDTO.builder()
-                    .message("Tarif aktualisiert")
-                    .carrierRates(saved)
-                    .build());
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(CarrierRatesResponseDTO.builder()
-                    .message("Verbindung zum Server fehlgeschlagen: " + e.getMessage())
-                    .carrierRates(null)
-                    .build());
+        final String id = request.getCarrierProjectId();
+        if (id == null || id.isBlank()) {
+            throw new com.jokati.invoice.exception.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "INVALID_ARGUMENT",
+                    "carrierProjectId is required"
+            );
         }
+
+        CarrierRates entity = CarrierRates.builder()
+                .id(id)
+                .carrierProjectId(id)
+                .projectId(request.getProjectId())
+                .rates(request.getRates())
+                .payload(request.getPayload())
+                .build();
+
+        CarrierRates saved = service.upsert(id, entity);
+        return ResponseUtil.ok(saved, "Tarif aktualisiert");
     }
 
     /**
@@ -131,12 +121,10 @@ public class CarrierRatesController {
      */
     @Operation(summary = "Delete carrier rates by id (optional)")
     @DeleteMapping("/{id}")
-    public ResponseEntity<CarrierRatesResponseDTO> delete(@PathVariable String id) {
-    	log.info("Request delete : {}",  id);
+    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String id) {
+        log.info("Request delete : {}", id);
         service.deleteById(id);
-        return ResponseEntity.ok(CarrierRatesResponseDTO.builder()
-                .message("Carrier rates deleted (if existed)")
-                .carrierRates(null)
-                .build());
+        // Node-style: 200 OK with message and {} in data
+        return ResponseUtil.ok(Map.of(), "Carrier rates deleted (if existed)");
     }
 }

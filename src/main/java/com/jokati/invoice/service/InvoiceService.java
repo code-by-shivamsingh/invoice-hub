@@ -1,6 +1,20 @@
 
 package com.jokati.invoice.service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.jokati.invoice.dto.InvoiceListItemDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
 import com.jokati.invoice.dto.InvoiceResponseDTO;
@@ -9,48 +23,51 @@ import com.jokati.invoice.mapper.InvoiceMapper;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
 import com.jokati.invoice.repository.InvoiceRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class InvoiceService {
+
+    private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
 
     private final InvoiceRepository repository;
     private final InvoiceMapper mapper;
     private final MongoTemplate mongoTemplate;
     private final InvoiceReconciliationService invoiceReconciliation;
 
-    public InvoiceResponseDTO create(String companyId, InvoiceRequestDTO request) throws Exception {
-        if (request.getCompanyId() == null || !companyId.equals(request.getCompanyId())) {
-            throw new Exception("companyId in path and body must match");
+    @Transactional
+    public InvoiceResponseDTO create(String pathCompanyId, InvoiceRequestDTO request) {
+        // Validate path/body consistency
+        if (request.getCompanyId() == null || !pathCompanyId.equals(request.getCompanyId())) {
+            throw new IllegalArgumentException("companyId in path and body must match");
         }
-        if (repository.existsByCompanyIdAndInvoiceNumber(companyId, request.getInvoiceNumber())) {
-            throw new Exception("Invoice already exists for companyId=" + companyId +
-                                ", invoiceNumber=" + request.getInvoiceNumber());
+
+        // Pre-check duplicate; prefer unique index at DB to throw DuplicateKeyException
+        boolean exists = repository.existsByCompanyIdAndInvoiceNumber(pathCompanyId, request.getInvoiceNumber());
+        if (exists) {
+            // If you have a unique index, DB will throw DuplicateKeyException; we mirror as 409
+            throw new DuplicateKeyException("Invoice already exists for companyId=" + pathCompanyId +
+                    ", invoiceNumber=" + request.getInvoiceNumber());
         }
+
         Invoice entity = mapper.toEntity(request);
-        entity.setCompanyId(companyId);
-        // status can be provided or computed in mapper during response
+        entity.setCompanyId(pathCompanyId);
+
+        // Persist
         Invoice saved = repository.save(entity);
-        
-//        // Reconciliation process start
-        Invoice savedfinal = invoiceReconciliation.reconcileAndPersist(saved);
-        return mapper.toResponse(savedfinal);
- //       return mapper.toResponse(saved);
+
+        // Reconciliation pipeline
+        Invoice reconciled = invoiceReconciliation.reconcileAndPersist(saved);
+
+        return mapper.toResponse(reconciled);
     }
 
-    public InvoiceResponseDTO get(String companyId, String invoiceNumber) throws Exception {
+    public InvoiceResponseDTO get(String companyId, String invoiceNumber) {
         Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-            .orElseThrow(() -> new Exception("Invoice not found for companyId=" + companyId +
-                                             ", invoiceNumber=" + invoiceNumber));
+                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
+                        ", invoiceNumber=" + invoiceNumber));
         return mapper.toResponse(entity);
     }
 
@@ -83,52 +100,58 @@ public class InvoiceService {
             q.addCriteria(Criteria.where("invoiceDate").lte(to));
         }
 
-        // Optionally sort by date desc
-        // q.with(Sort.by(Sort.Direction.DESC, "invoiceDate"));
-
         List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
         return invoices.stream().map(mapper::toListItem).toList();
     }
 
-    public void delete(String companyId, String invoiceNumber) throws Exception {
+    @Transactional
+    public void delete(String companyId, String invoiceNumber) {
         Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-            .orElseThrow(() -> new Exception("Invoice not found for companyId=" + companyId +
-                                             ", invoiceNumber=" + invoiceNumber));
+                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
+                        ", invoiceNumber=" + invoiceNumber));
         repository.delete(entity);
+        log.info("Invoice deleted: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
     }
 
-    public InvoiceResponseDTO replace(String companyId, String invoiceNumber, InvoiceRequestDTO request) throws Exception {
+    @Transactional
+    public InvoiceResponseDTO replace(String companyId, String invoiceNumber, InvoiceRequestDTO request) {
         Invoice existing = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-            .orElseThrow(() -> new Exception("Invoice not found for companyId=" + companyId +
-                                             ", invoiceNumber=" + invoiceNumber));
+                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
+                        ", invoiceNumber=" + invoiceNumber));
+
         if (request.getCompanyId() == null || !companyId.equals(request.getCompanyId())) {
-            throw new Exception("companyId in path and body must match");
+            throw new IllegalArgumentException("companyId in path and body must match");
         }
         if (!invoiceNumber.equals(request.getInvoiceNumber())) {
-            throw new Exception("invoiceNumber in path and body must match");
+            throw new IllegalArgumentException("invoiceNumber in path and body must match");
         }
 
         Invoice updated = mapper.toEntity(request);
         updated.setId(existing.getId());
         updated.setCompanyId(companyId);
+
         Invoice saved = repository.save(updated);
         return mapper.toResponse(saved);
     }
 
-    public InvoiceResponseDTO addShipment(String companyId, String invoiceNumber, ShipmentDTO dto) throws Exception {
+    @Transactional
+    public InvoiceResponseDTO addShipment(String companyId, String invoiceNumber, ShipmentDTO dto) {
         Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-            .orElseThrow(() -> new Exception("Invoice not found for companyId=" + companyId +
-                                             ", invoiceNumber=" + invoiceNumber));
+                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
+                        ", invoiceNumber=" + invoiceNumber));
+
         Shipment shipment = mapper.toShipment(dto);
+
+        // Replace if exists (shipmentId unique per invoice)
         entity.getShipments().removeIf(s -> s.getShipmentId().equalsIgnoreCase(shipment.getShipmentId()));
         entity.getShipments().add(shipment);
+
         Invoice saved = repository.save(entity);
         return mapper.toResponse(saved);
     }
 
     private LocalDate parseDateFlexible(String input) {
         if (input == null || input.isBlank()) return null;
-        // Support both "yyyy-MM-dd" and "dd/MM/yyyy" (as per UI)
         try { return LocalDate.parse(input, DateTimeFormatter.ISO_LOCAL_DATE); } catch (Exception ignored) {}
         try { return LocalDate.parse(input, DateTimeFormatter.ofPattern("dd/MM/yyyy")); } catch (Exception ignored) {}
         return null;

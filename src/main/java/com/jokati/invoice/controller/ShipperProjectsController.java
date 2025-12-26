@@ -1,6 +1,20 @@
 
-
 package com.jokati.invoice.controller;
+
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
@@ -11,19 +25,8 @@ import com.jokati.invoice.service.ShipperProjectService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
-
 
 @Tag(name = "Shipper Projects", description = "APIs to manage shipper projects")
 @RestController
@@ -34,9 +37,7 @@ public class ShipperProjectsController {
 
     private final ShipperProjectService service;
 
-    @Operation(
-        summary = "Get all projects for a user"
-    )
+    @Operation(summary = "Get all projects for a user")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ShipperProjectResponseDTO>>> getByUserId(@RequestParam String userId) {
         log.info("Request getByUserId : {}", userId);
@@ -54,7 +55,7 @@ public class ShipperProjectsController {
         var response = service.getByProjectId(projectId);
         if (response == null) {
             // Node-style: 200 OK with {}
-            return ResponseUtil.ok(Map.of(), "OK");
+            return ResponseUtil.okEmpty("OK");
         }
         return ResponseUtil.ok(response, "Project fetched successfully");
     }
@@ -64,9 +65,11 @@ public class ShipperProjectsController {
         description = "Validates userId and name, then creates a new project with a generated _id."
     )
     @PostMapping
-    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> create(@Valid @RequestBody ShipperProjectRequestDTO requestDTO) {
+    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> create(
+            @Valid @RequestBody ShipperProjectRequestDTO requestDTO) {
         log.info("Request create : {}", requestDTO);
         var saved = service.create(requestDTO);
+        // Using 200 OK to mirror your Node behavior; if you prefer 201, use ResponseUtil.created(...)
         return ResponseUtil.ok(saved, "Project created successfully");
     }
 
@@ -75,7 +78,8 @@ public class ShipperProjectsController {
         description = "Validates id and name; returns 404 if not found, 400 if invalid."
     )
     @PutMapping
-    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> update(@Valid @RequestBody ShipperProjectUpdateRequestDTO requestDTO) {
+    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> update(
+            @Valid @RequestBody ShipperProjectUpdateRequestDTO requestDTO) {
         log.info("Request update : {}", requestDTO);
         var updated = service.update(requestDTO);
         return ResponseUtil.ok(updated, "Project updated successfully");

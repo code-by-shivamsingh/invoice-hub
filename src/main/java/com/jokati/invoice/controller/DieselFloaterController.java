@@ -1,24 +1,37 @@
 
 package com.jokati.invoice.controller;
 
-import com.jokati.invoice.dto.DieselFloaterResponseDTO;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ErrorCodes;
+import com.jokati.invoice.common.ErrorDetail;
+import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.model.DieselFloater;
 import com.jokati.invoice.service.DieselFloaterService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.*;
 
 /**
  * Diesel Floater API
  *
  * Endpoints:
- *  - PUT /api/diesel-floater      : Create or update the matrix (upsert style)
- *  - GET /api/diesel-floater      : Get the current matrix (years map)
- *  - GET /api/diesel-floater/sources : Infer available sources from the first year entry
+ *  - PUT /api/diesel-floater           : Create or update the matrix (upsert style)
+ *  - GET /api/diesel-floater           : Get the current matrix (years map)
+ *  - GET /api/diesel-floater/sources   : Infer available sources from the first year entry
  */
 @RestController
 @RequestMapping("/api/diesel-floater")
@@ -49,40 +62,32 @@ public class DieselFloaterController {
      */
     @Operation(summary = "Create or update Diesel Floater matrix")
     @PutMapping
-    public ResponseEntity<DieselFloaterResponseDTO> createOrUpdate(@RequestBody Map<String, Object> yearsPayload) {
-        log.info("DieselFloaterController.createOrUpdate: incoming years payload keys={}", yearsPayload != null ? yearsPayload.keySet() : "null");
+    public ResponseEntity<ApiResponse<Object>> createOrUpdate(@Valid @RequestBody Map<String, Object> yearsPayload) {
+        log.info("DieselFloaterController.createOrUpdate: incoming years payload keys={}",
+                yearsPayload != null ? yearsPayload.keySet() : "null");
 
-        try {
-            if (yearsPayload == null || yearsPayload.isEmpty()) {
-                log.warn("DieselFloaterController.createOrUpdate: empty body");
-                return ResponseEntity.badRequest().body(
-                        DieselFloaterResponseDTO.builder().message("Invalid payload: 'years' map required").years(null).build()
-                );
-            }
-
-            // Use latest if multiple exist (deterministic update behavior)
-            Optional<DieselFloater> latestOpt = service.findLatest();
-            if (latestOpt.isEmpty()) {
-                // Create new
-                DieselFloater created = service.save(DieselFloater.builder().years(yearsPayload).build());
-                log.info("DieselFloaterController.createOrUpdate: created id={}", created.getId());
-                return ResponseEntity.status(201).body(
-                        DieselFloaterResponseDTO.builder().message("DieselFloater created").years(yearsPayload).build()
-                );
-            } else {
-                DieselFloater latest = latestOpt.get();
-                DieselFloater updated = service.update(latest.getId(),
-                        DieselFloater.builder().id(latest.getId()).years(yearsPayload).build());
-                log.info("DieselFloaterController.createOrUpdate: updated id={}", updated.getId());
-                return ResponseEntity.ok(
-                        DieselFloaterResponseDTO.builder().message("DieselFloater updated").years(yearsPayload).build()
-                );
-            }
-        } catch (Exception e) {
-            log.error("DieselFloaterController.createOrUpdate: server error: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(
-                    DieselFloaterResponseDTO.builder().message("Server error: " + e.getMessage()).years(null).build()
+        if (yearsPayload == null || yearsPayload.isEmpty()) {
+            log.warn("DieselFloaterController.createOrUpdate: empty body");
+            // Standardized error (BAD_REQUEST)
+            return ResponseUtil.error(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid payload: 'years' map required",
+                    new ErrorDetail(ErrorCodes.BAD_REQUEST, "Invalid payload: 'years' map required", "years", null)
             );
+        }
+
+        Optional<DieselFloater> latestOpt = service.findLatest();
+        if (latestOpt.isEmpty()) {
+            DieselFloater created = service.save(DieselFloater.builder().years(yearsPayload).build());
+            log.info("DieselFloaterController.createOrUpdate: created id={}", created.getId());
+            // 201 Created with data being the years map (Node-like)
+            return ResponseUtil.created(yearsPayload, "DieselFloater created");
+        } else {
+            DieselFloater latest = latestOpt.get();
+            DieselFloater updated = service.update(latest.getId(),
+                    DieselFloater.builder().id(latest.getId()).years(yearsPayload).build());
+            log.info("DieselFloaterController.createOrUpdate: updated id={}", updated.getId());
+            return ResponseUtil.ok(yearsPayload, "DieselFloater updated");
         }
     }
 
@@ -92,23 +97,17 @@ public class DieselFloaterController {
      */
     @Operation(summary = "Get Diesel Floater matrix (years map)")
     @GetMapping
-    public ResponseEntity<DieselFloaterResponseDTO> getMatrix() {
+    public ResponseEntity<ApiResponse<Object>> getMatrix() {
         log.info("DieselFloaterController.getMatrix: request received");
 
         Optional<DieselFloater> latestOpt = service.findLatest();
         if (latestOpt.isEmpty()) {
             log.warn("DieselFloaterController.getMatrix: no content");
-            return ResponseEntity.noContent().build();
+            return ResponseUtil.noContent("No DieselFloater data");
         }
 
         Map<String, Object> years = service.extractYears(latestOpt.get());
-
-        return ResponseEntity.ok(
-                DieselFloaterResponseDTO.builder()
-                        .message("DieselFloater matrix fetched")
-                        .years(years)
-                        .build()
-        );
+        return ResponseUtil.ok(years, "DieselFloater matrix fetched");
     }
 
     /**
@@ -119,13 +118,13 @@ public class DieselFloaterController {
      */
     @Operation(summary = "Get Diesel Floater sources (from first year entry)")
     @GetMapping("/sources")
-    public ResponseEntity<DieselFloaterResponseDTO> getSources() {
+    public ResponseEntity<ApiResponse<Object>> getSources() {
         log.info("DieselFloaterController.getSources: request received");
 
         Optional<DieselFloater> latestOpt = service.findLatest();
         if (latestOpt.isEmpty()) {
             log.warn("DieselFloaterController.getSources: no content");
-            return ResponseEntity.noContent().build();
+            return ResponseUtil.noContent("No DieselFloater data");
         }
 
         Map<String, Object> years = service.extractYears(latestOpt.get());
@@ -133,14 +132,10 @@ public class DieselFloaterController {
 
         if (sources.isEmpty()) {
             log.warn("DieselFloaterController.getSources: sources not found or payload malformed");
-            return ResponseEntity.noContent().build();
+            return ResponseUtil.noContent("No sources found");
         }
 
-        return ResponseEntity.ok(
-                DieselFloaterResponseDTO.builder()
-                        .message("DieselFloater sources fetched")
-                        .years(sources)
-                        .build()
-        );
+        // Return sources as the data payload
+        return ResponseUtil.ok(sources, "DieselFloater sources fetched");
     }
 }

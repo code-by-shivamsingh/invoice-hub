@@ -1,14 +1,9 @@
 
 package com.jokati.invoice.service;
 
-import com.jokati.invoice.dto.CarrierOfferingRequestDTO;
-import com.jokati.invoice.model.CarrierOffering;
-import com.jokati.invoice.repository.CarrierOfferingRepository;
+import java.util.List;
+import java.util.Map;
 
-import jakarta.mail.MessagingException;
-
-import com.jokati.invoice.email.EmailTemplates;
-import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
@@ -16,9 +11,16 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import com.jokati.invoice.dto.CarrierOfferingRequestDTO;
+import com.jokati.invoice.email.EmailTemplates;
+import com.jokati.invoice.exception.ApiException;
+import com.jokati.invoice.model.CarrierOffering;
+import com.jokati.invoice.repository.CarrierOfferingRepository;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -51,7 +53,7 @@ public class CarrierOfferingService {
 
         String carrierProjectId = request.getCarrierProjectId();
         if (carrierProjectId == null || carrierProjectId.isBlank()) {
-            throw new IllegalArgumentException("carrierProjectId is required");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", "carrierProjectId is required");
         }
 
         // Build query by carrierProjectId
@@ -74,8 +76,8 @@ public class CarrierOfferingService {
         if (idToInsert != null) {
             update.setOnInsert("_id", idToInsert);
         } else {
-            // Fallback: let Mongo generate _id if absent; or store the string version:
-            update.setOnInsert("_id", new ObjectId()); // alternative: string id if you need correlation
+            // Fallback: let Mongo generate _id
+            update.setOnInsert("_id", new ObjectId());
             log.warn("carrierProjectId '{}' is not a valid ObjectId hex; inserting with a generated _id.", carrierProjectId);
         }
 
@@ -96,18 +98,14 @@ public class CarrierOfferingService {
                 if (c instanceof String s && !s.isBlank()) companyName = s;
             }
             if (companyName != null && updated.getShipperEmail() != null && !updated.getShipperEmail().isBlank()) {
-                try {
-                    String html = templates.angebotErhaltenTemplate(companyName);
-                    emailService.sendEmail(updated.getShipperEmail(), subject, html);
-                } catch (MessagingException e) {
-                    log.warn("Email sending failed to {}: {}", updated.getShipperEmail(), e.getMessage());
-                }
+                String html = templates.angebotErhaltenTemplate(companyName);
+				emailService.sendEmail(updated.getShipperEmail(), subject, html);
             }
 
             return updated;
         } catch (DataAccessException ex) {
             log.error("POST/PUT carrier offering server error", ex);
-            throw ex;
+            throw ex; // will be handled by GlobalExceptionHandler
         }
     }
 

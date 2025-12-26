@@ -1,15 +1,31 @@
 
 package com.jokati.invoice.service;
 
-import com.jokati.invoice.dto.PriceDeterminationResponseDTO;
-import com.jokati.invoice.model.*;
-import com.jokati.invoice.repository.*;
-import lombok.RequiredArgsConstructor;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import com.jokati.invoice.dto.PriceDeterminationResponseDTO;
+import com.jokati.invoice.model.CarrierOffering;
+import com.jokati.invoice.model.DieselFloater;
+import com.jokati.invoice.model.ShipperExtraCosts;
+import com.jokati.invoice.model.ShipperFreightCalculationBasis;
+import com.jokati.invoice.model.ShipperProject;
+import com.jokati.invoice.model.ShipperRates;
+import com.jokati.invoice.repository.CarrierOfferingRepository;
+import com.jokati.invoice.repository.DieselFloaterRepository;
+import com.jokati.invoice.repository.ShipperExtraCostsRepository;
+import com.jokati.invoice.repository.ShipperFreightCalculationBasisRepository;
+import com.jokati.invoice.repository.ShipperProjectRepository;
+import com.jokati.invoice.repository.ShipperRatesRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

@@ -1,18 +1,28 @@
 
 package com.jokati.invoice.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.ShipperFreightCalculationBasisRequestDTO;
 import com.jokati.invoice.dto.ShipperFreightCalculationBasisResponseDTO;
 import com.jokati.invoice.model.ShipperFreightCalculationBasis;
 import com.jokati.invoice.service.ShipperFreightCalculationBasisService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/shipper-freight-calculation-basis")
@@ -20,85 +30,60 @@ import org.springframework.web.bind.annotation.*;
 public class ShipperFreightCalculationBasisController {
 	private static final Logger log = LoggerFactory.getLogger(ShipperFreightCalculationBasisController.class);
 
-    private final ShipperFreightCalculationBasisService service;
+	private final ShipperFreightCalculationBasisService service;
 
-    public ShipperFreightCalculationBasisController(ShipperFreightCalculationBasisService service) {
-        this.service = service;
-    }
+	public ShipperFreightCalculationBasisController(ShipperFreightCalculationBasisService service) {
+		this.service = service;
+	}
 
-    @Operation(summary = "Create freight calculation basis")
-    @PostMapping
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> create(
-            @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
-    	log.info("Request create : {}",  request);
+	@Operation(summary = "Get freight calculation basis by ID")
+	@GetMapping("/{projectId}")
+	public ResponseEntity<ApiResponse<Object>> get(@PathVariable String projectId) {
+		log.info("Request get : {}", projectId);
+		return service.findByProjectId(projectId).map(
+				basis -> ResponseUtil.okObject(toResponseDTO(basis), "Freight calculation basis fetched successfully"))
+				.orElse(ResponseUtil.okEmpty("OK")); // Node-style 200 with {}
+	}
 
-        ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
-        ShipperFreightCalculationBasis saved = service.save(entity);
+	@Operation(summary = "Create freight calculation basis")
+	@PostMapping
+	public ResponseEntity<ApiResponse<Object>> create(
+			@Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+		log.info("Request create : {}", request);
 
-        return ResponseEntity.ok(
-                toResponseDTO(saved, "Freight calculation basis saved successfully")
-        );
-    }
+		var entity = service.fromRequestDTO(request);
+		var saved = service.save(entity);
 
-    @Operation(summary = "Update freight calculation basis")
-    @PutMapping("/{id}")
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> update(
-            @PathVariable String id,
-            @Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
-    	log.info("Request update bu id  : {}, and request {}", id, request);
+		return ResponseUtil.okObject(toResponseDTO(saved), "Freight calculation basis saved successfully");
+	}
 
-        ShipperFreightCalculationBasis entity = service.fromRequestDTO(request);
-        ShipperFreightCalculationBasis updated = service.update(id, entity);
+	@Operation(summary = "Update freight calculation basis")
+	@PutMapping("/{id}")
+	public ResponseEntity<ApiResponse<Object>> update(@PathVariable String id,
+			@Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+		log.info("Request update by id : {}, request {}", id, request);
 
-        return ResponseEntity.ok(
-                toResponseDTO(updated, "Freight calculation basis updated successfully")
-        );
-    }
+		var entity = service.fromRequestDTO(request);
+		var updated = service.update(id, entity);
 
-    @Operation(summary = "Get freight calculation basis by ID")
-    @GetMapping("/{projectId}")
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> get(@PathVariable String projectId) {
-    	log.info("Request get : {}",  projectId);
-        return service.findByProjectId(projectId)
-                .map(basis -> ResponseEntity.ok(
-                        toResponseDTO(basis, "Freight calculation basis fetched successfully")
-                ))
-                .orElse(ResponseEntity.notFound().build());
-    }
+		return ResponseUtil.okObject(toResponseDTO(updated), "Freight calculation basis updated successfully");
+	}
 
-    @Operation(summary = "Delete freight calculation basis by ID")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ShipperFreightCalculationBasisResponseDTO> delete(@PathVariable String id) {
-    	log.info("Request delete : {}",  id);
-        service.delete(id);
-        return ResponseEntity.ok(
-                ShipperFreightCalculationBasisResponseDTO.builder()
-                        .message("Freight calculation basis deleted successfully")
-                        .id(null)
-                        .projectId(null)
-                        .carrierProjectId(null)
-                        .countries(null)
-                        .firebaseId(null)
-                        .extra(null)
-                        .createdAt(null)
-                        .updatedAt(null)
-                        .build()
-        );
-    }
+	@Operation(summary = "Delete freight calculation basis by ID")
+	@DeleteMapping("/{id}")
+	public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String id) {
+		log.info("Request delete : {}", id);
+		service.delete(id);
+		return ResponseUtil.okEmpty("Freight calculation basis deleted successfully");
+	}
 
-    /* ---------- mapping helper ---------- */
+	/* ---------- mapping helper ---------- */
 
-    private ShipperFreightCalculationBasisResponseDTO toResponseDTO(ShipperFreightCalculationBasis entity, String message) {
-        return ShipperFreightCalculationBasisResponseDTO.builder()
-                .message(message)
-                .id(entity.getId() != null ? entity.getId().toHexString() : null)
-                .projectId(entity.getProjectId())
-                .carrierProjectId(entity.getCarrierProjectId())
-                .countries(entity.getCountries())
-                .firebaseId(entity.getFirebaseId())
-                .extra(entity.getExtra())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .build();
-    }
+	private ShipperFreightCalculationBasisResponseDTO toResponseDTO(ShipperFreightCalculationBasis entity) {
+		return ShipperFreightCalculationBasisResponseDTO.builder()
+				.id(entity.getId() != null ? entity.getId().toHexString() : null).projectId(entity.getProjectId())
+				.carrierProjectId(entity.getCarrierProjectId()).countries(entity.getCountries())
+				.firebaseId(entity.getFirebaseId()).extra(entity.getExtra()).createdAt(entity.getCreatedAt())
+				.updatedAt(entity.getUpdatedAt()).build();
+	}
 }

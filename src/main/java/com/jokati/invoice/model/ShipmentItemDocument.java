@@ -1,8 +1,12 @@
 
 package com.jokati.invoice.model;
 
-import lombok.*;
 import org.springframework.data.mongodb.core.mapping.Field;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor

@@ -1,23 +1,34 @@
 
 package com.jokati.invoice.controller;
 
-import com.jokati.invoice.dto.CarrierTemplatesRequestDTO;
-import com.jokati.invoice.dto.CarrierTemplatesResponseDTO;
-import com.jokati.invoice.model.CarrierTemplates;
-import com.jokati.invoice.service.CarrierTemplatesService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
+
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.CarrierTemplatesRequestDTO;
+import com.jokati.invoice.model.CarrierTemplates;
+import com.jokati.invoice.service.CarrierTemplatesService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/carrier-templates")
 @Tag(name = "Carrier Templates API", description = "Manage carrier templates (single document)")
 public class CarrierTemplatesController {
-	private static final Logger log = LoggerFactory.getLogger(CarrierTemplatesController.class);
+    private static final Logger log = LoggerFactory.getLogger(CarrierTemplatesController.class);
     private final CarrierTemplatesService service;
 
     public CarrierTemplatesController(CarrierTemplatesService service) {
@@ -29,43 +40,32 @@ public class CarrierTemplatesController {
      */
     @Operation(summary = "Get the first (current) carrier templates document")
     @GetMapping
-    public ResponseEntity<?> getFirst() {
-    	log.info("Get the first (current) carrier templates document");
+    public ResponseEntity<ApiResponse<Object>> getFirst() {
+        log.info("Get the first (current) carrier templates document");
         CarrierTemplates first = service.findFirst();
         if (first == null) {
-            // Node responds with result[0]; if empty, you returned undefined implicitly.
-            // We'll return 200 with empty object to be safe.
-            return ResponseEntity.ok(new Object());
+            // Node-style: 200 with empty object
+            return ResponseUtil.ok(Map.of(), "OK");
         }
-        return ResponseEntity.ok(first);
+        return ResponseUtil.ok(first, "Carrier templates fetched successfully");
     }
 
     /**
      * POST: drop collection then insert new document with generated _id.
-     * Mirrors Node logic and returns status, saveResult.
+     * Mirrors Node logic and returns status + saved doc.
      */
     @Operation(summary = "Replace all templates with a new document (drops collection)")
     @PostMapping
-    public ResponseEntity<CarrierTemplatesResponseDTO> replace(@RequestBody CarrierTemplatesRequestDTO request) {
-    	log.info("Request replace : {}",  request);
-    	try {
-            CarrierTemplates doc = CarrierTemplates.builder()
-                    .id(new ObjectId().toHexString())
-                    .template(request.getTemplate())
-                    .build();
+    public ResponseEntity<ApiResponse<CarrierTemplates>> replace(@Valid @RequestBody CarrierTemplatesRequestDTO request) {
+        log.info("Request replace : {}", request);
 
-            CarrierTemplates saved = service.replaceAll(doc);
+        CarrierTemplates doc = CarrierTemplates.builder()
+                .id(new ObjectId().toHexString())
+                .template(request.getTemplate())
+                .build();
 
-            return ResponseEntity.status(201).body(CarrierTemplatesResponseDTO.builder()
-                    .message("Templates replaced and saved")
-                    .data(saved)
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(CarrierTemplatesResponseDTO.builder()
-                    .message("POST Error: " + e.getMessage())
-                    .data(null)
-                    .build());
-        }
+        CarrierTemplates saved = service.replaceAll(doc);
+        return ResponseUtil.created(saved, "Templates replaced and saved");
     }
 
     /**
@@ -73,12 +73,9 @@ public class CarrierTemplatesController {
      */
     @Operation(summary = "Delete all templates (optional)")
     @DeleteMapping
-    public ResponseEntity<CarrierTemplatesResponseDTO> deleteAll() {
-    	log.info("Request deleteAll");
+    public ResponseEntity<ApiResponse<Object>> deleteAll() {
+        log.info("Request deleteAll");
         service.deleteAll();
-        return ResponseEntity.ok(CarrierTemplatesResponseDTO.builder()
-                .message("All templates deleted (if existed)")
-                .data(null)
-                .build());
+        return ResponseUtil.ok(Map.of(), "All templates deleted (if existed)");
     }
 }

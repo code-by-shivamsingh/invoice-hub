@@ -1,6 +1,25 @@
 
 package com.jokati.invoice.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.CarrierExtraCostsRequestDTO;
 import com.jokati.invoice.dto.CarrierExtraCostsResponseDTO;
 import com.jokati.invoice.model.CarrierExtraCosts;
@@ -8,23 +27,18 @@ import com.jokati.invoice.model.DieselFloater;
 import com.jokati.invoice.repository.CarrierExtraCostsRepository;
 import com.jokati.invoice.repository.DieselFloaterRepository;
 import com.jokati.invoice.service.CarrierExtraCostsService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/carrier-extra-costs")
 @Tag(name = "Carrier Extra Costs API", description = "Manage carrier extra costs")
 public class CarrierExtraCostsController {
-	private static final Logger log = LoggerFactory.getLogger(CarrierExtraCostsController.class);
 
-private final CarrierExtraCostsService service;
+    private static final Logger log = LoggerFactory.getLogger(CarrierExtraCostsController.class);
+
+    private final CarrierExtraCostsService service;
     private final CarrierExtraCostsRepository carrierRepo;
     private final DieselFloaterRepository dieselRepo;
 
@@ -36,92 +50,95 @@ private final CarrierExtraCostsService service;
         this.dieselRepo = dieselRepo;
     }
 
-
     @Operation(summary = "Create carrier extra costs")
-    @PostMapping
-    public ResponseEntity<CarrierExtraCostsResponseDTO> create(@RequestBody CarrierExtraCostsRequestDTO request) {
-    	log.info("Request create : {}",  request);
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> create(@RequestBody CarrierExtraCostsRequestDTO request) {
+        log.info("Request create : {}", request);
+
         CarrierExtraCosts entity = CarrierExtraCosts.builder()
                 .carrierProjectId(request.getCarrierProjectId())
                 .extraCosts(request.getExtraCosts())
                 .build();
+
         CarrierExtraCosts saved = service.save(entity);
-        return ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
-                .message("Carrier extra costs saved successfully")
-                .carrierExtraCosts(saved)
-                .build());
+
+        // Return DTO in envelope; message in envelope
+        CarrierExtraCostsResponseDTO dto = toResponseDTO(saved);
+        return ResponseUtil.okObject(dto, "Carrier extra costs saved successfully");
     }
 
     @Operation(summary = "Update carrier extra costs")
-    @PutMapping("/{id}")
-    public ResponseEntity<CarrierExtraCostsResponseDTO> update(@PathVariable String id,
-                                                               @RequestBody CarrierExtraCostsRequestDTO request) {
-    	log.info("Request update : {}",  request);
+    @PutMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> update(@PathVariable String id,
+                                                      @RequestBody CarrierExtraCostsRequestDTO request) {
+        log.info("Request update : {}", request);
+
         CarrierExtraCosts entity = CarrierExtraCosts.builder()
                 .carrierProjectId(request.getCarrierProjectId())
                 .extraCosts(request.getExtraCosts())
                 .build();
+
         CarrierExtraCosts updated = service.update(id, entity);
-        return ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
-                .message("Carrier extra costs updated successfully")
-                .carrierExtraCosts(updated)
-                .build());
+
+        CarrierExtraCostsResponseDTO dto = toResponseDTO(updated);
+        return ResponseUtil.okObject(dto, "Carrier extra costs updated successfully");
     }
 
     @Operation(summary = "Get carrier extra costs by ID")
-    @GetMapping("/{id}")
-    public ResponseEntity<CarrierExtraCostsResponseDTO> get(@PathVariable String id) {
-    	log.info("Request get : {}",  id);
+    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> get(@PathVariable String id) {
+        log.info("Request get : {}", id);
+
+        // Node-style: 200 OK with {} when missing/invalid
         return service.findById(id)
-                .map(costs -> ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
-                        .message("Carrier extra costs fetched successfully")
-                        .carrierExtraCosts(costs)
-                        .build()))
-                .orElse(ResponseEntity.notFound().build());
+                .map(costs -> ResponseUtil.okObject(toResponseDTO(costs), "Carrier extra costs fetched successfully"))
+                .orElse(ResponseUtil.okEmpty("OK"));
     }
 
     @Operation(summary = "Delete carrier extra costs by ID")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<CarrierExtraCostsResponseDTO> delete(@PathVariable String id) {
-    	log.info("Request delete : {}",  id);
+    @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String id) {
+        log.info("Request delete : {}", id);
         service.delete(id);
-        return ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
-                .message("Carrier extra costs deleted successfully")
-                .carrierExtraCosts(null)
-                .build());
+        return ResponseUtil.okEmpty("Carrier extra costs deleted successfully");
     }
 
     @Operation(summary = "Fetch Carrier Extra Costs and Diesel Floater data")
-    @GetMapping
-    public ResponseEntity<CarrierExtraCostsResponseDTO> getCarrierExtraCosts(
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getCarrierExtraCosts(
             @RequestParam(required = false) String projectId,
             @RequestParam(required = false, defaultValue = "false") boolean findAll) {
-    	
-    	log.info("Request getCarrierExtraCosts : {} and find all : {}",  projectId,findAll);
 
-        try {
-            List<CarrierExtraCosts> extraCostsData = findAll
-                    ? carrierRepo.findAll()
-                    : (projectId != null ? List.of(carrierRepo.findById(projectId).orElse(null)) : List.of());
+        log.info("Request getCarrierExtraCosts : projectId={}, findAll={}", projectId, findAll);
 
-            List<DieselFloater> dieselFloaterData = dieselRepo.findAll();
+        // Build payload map for aggregated response
+        List<CarrierExtraCosts> extraCostsData = findAll
+                ? carrierRepo.findAll()
+                : (projectId != null ? List.of(carrierRepo.findById(projectId).orElse(null)) : List.of());
 
-            if (extraCostsData.isEmpty() || extraCostsData.get(0) == null) {
-                return ResponseEntity.noContent().build();
-            }
+        List<DieselFloater> dieselFloaterData = dieselRepo.findAll();
 
-            return ResponseEntity.ok(CarrierExtraCostsResponseDTO.builder()
-                    .message("Data fetched successfully")
-                    .carrierExtraCosts(extraCostsData)
-                    .dieselFloater(dieselFloaterData.isEmpty() ? null : dieselFloaterData.get(0).getYears())
-                    .build());
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(CarrierExtraCostsResponseDTO.builder()
-                    .message("Server error: " + e.getMessage())
-                    .carrierExtraCosts(null)
-                    .dieselFloater(null)
-                    .build());
+        if (extraCostsData.isEmpty() || extraCostsData.get(0) == null) {
+            // Node-style: 200 OK with {} when not found
+            return ResponseUtil.okEmpty("OK");
         }
+
+        Map<String, Object> payload = Map.of(
+                "carrierExtraCosts", extraCostsData,
+                "dieselFloater", dieselFloaterData.isEmpty() ? null : dieselFloaterData.get(0).getYears()
+        );
+
+        return ResponseUtil.okObject(payload, "Data fetched successfully");
     }
+
+
+/* ------------ mapping ------------ */
+private CarrierExtraCostsResponseDTO toResponseDTO(CarrierExtraCosts entity) {
+    return CarrierExtraCostsResponseDTO.builder()
+            // or set via envelope and remove here
+            .carrierExtraCosts(entity)                           // or entity.getExtraCosts() if you only want the map
+            .dieselFloater(null)                                 // fill when available
+            .build();
+}
+
 }

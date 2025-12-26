@@ -1,15 +1,18 @@
 
 package com.jokati.invoice.service;
 
-import com.jokati.invoice.dto.ShipperFreightCalculationBasisRequestDTO;
-import com.jokati.invoice.model.ShipperFreightCalculationBasis;
-import com.jokati.invoice.repository.ShipperFreightCalculationBasisRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import com.jokati.invoice.dto.ShipperFreightCalculationBasisRequestDTO;
+import com.jokati.invoice.model.ShipperFreightCalculationBasis;
+import com.jokati.invoice.repository.ShipperFreightCalculationBasisRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -17,29 +20,24 @@ public class ShipperFreightCalculationBasisService {
 
     private final ShipperFreightCalculationBasisRepository repository;
 
-    /**
-     * Save a new entity (generates new ObjectId).
-     */
+    /** Save a new entity (generates new ObjectId). */
     @Transactional
     public ShipperFreightCalculationBasis save(ShipperFreightCalculationBasis entity) {
-        // Ensure id is generated when saving a new record
         if (entity.getId() == null) {
             entity.setId(new ObjectId());
         }
         return repository.save(entity);
     }
 
-    /**
-     * Update by document id (hex string) — safely converts to ObjectId.
-     */
+    /** Update by document id (hex string). */
     @Transactional
     public ShipperFreightCalculationBasis update(String idHex, ShipperFreightCalculationBasis updatedFields) {
         ObjectId id = toObjectId(idHex);
 
         var existing = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Freight calculation basis not found for id: " + idHex));
+                .orElseThrow(() -> new NoSuchElementException("Freight calculation basis not found for id: " + idHex));
 
-        // Apply incoming fields (replace/overwrite semantics)
+        // Replace/overwrite semantics as per your logic
         existing.setProjectId(updatedFields.getProjectId());
         existing.setCarrierProjectId(updatedFields.getCarrierProjectId());
         existing.setCountries(updatedFields.getCountries());
@@ -49,25 +47,24 @@ public class ShipperFreightCalculationBasisService {
         return repository.save(existing);
     }
 
-    /**
-     * Find by id (hex string) — returns Optional.
-     */
+    /** Find by id (hex string) — returns Optional; Node-style handled in controller. */
     public Optional<ShipperFreightCalculationBasis> findByProjectId(String projectId) {
         try {
             ObjectId id = new ObjectId(projectId);
             return repository.findById(id);
         } catch (IllegalArgumentException e) {
-            // invalid ObjectId format; mirror Node-style behavior by returning empty
+            // Invalid ObjectId format; mirror Node-style behavior by returning empty
             return Optional.empty();
         }
     }
 
-    /**
-     * Delete by id (hex string).
-     */
+    /** Delete by id (hex string). */
     @Transactional
     public void delete(String idHex) {
         ObjectId id = toObjectId(idHex);
+        if (!repository.existsById(id)) {
+            throw new NoSuchElementException("Freight calculation basis not found for id: " + idHex);
+        }
         repository.deleteById(id);
     }
 
@@ -81,9 +78,7 @@ public class ShipperFreightCalculationBasisService {
         }
     }
 
-    /**
-     * Utility to build entity from request DTO.
-     */
+    /** Build entity from request DTO. */
     public ShipperFreightCalculationBasis fromRequestDTO(ShipperFreightCalculationBasisRequestDTO req) {
         return ShipperFreightCalculationBasis.builder()
                 .projectId(req.getProjectId())

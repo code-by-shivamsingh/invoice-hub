@@ -1,22 +1,27 @@
 
 package com.jokati.invoice.service;
 
-import com.jokati.invoice.dto.ShipmentRequestDTO;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.bson.types.ObjectId;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.jokati.invoice.dto.ShipmentItemResponseDTO;
+import com.jokati.invoice.dto.ShipmentRequestDTO;
 import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
 import com.jokati.invoice.mapper.ShipmentMapper;
 import com.jokati.invoice.model.ProjectShipmentDocument;
 import com.jokati.invoice.model.ShipmentItemDocument;
 import com.jokati.invoice.repository.ProjectShipmentRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.bson.types.ObjectId;
-import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -33,6 +38,7 @@ public class ShipmentService {
                 .map(resList -> ShipmentSaveResponseDTO.builder().shipmentData(resList).build());
     }
 
+    @Transactional
     public ShipmentSaveResponseDTO saveBatch(ShipmentRequestDTO request) {
         ProjectShipmentDocument agg = repository.findByProjectId(request.getProjectId())
                 .orElse(ProjectShipmentDocument.builder()
@@ -71,14 +77,16 @@ public class ShipmentService {
                 .build();
     }
 
-    public boolean deleteByProjectId(String projectId) {
+    @Transactional
+    public void deleteByProjectId(String projectId) {
         Optional<ProjectShipmentDocument> existing = repository.findByProjectId(projectId);
-        existing.ifPresent(e -> repository.deleteByProjectId(projectId));
-        return existing.isPresent();
+        if (existing.isEmpty()) {
+            throw new java.util.NoSuchElementException("Shipment data not found for projectId: " + projectId);
+        }
+        repository.deleteByProjectId(projectId);
     }
 
-
-public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId projectId, String shipmentId) {
+    public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId projectId, String shipmentId) {
         if (projectId == null) {
             throw new IllegalArgumentException("projectId must not be null");
         }
@@ -93,8 +101,7 @@ public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId 
                 .filter(Objects::nonNull)
                 .orElseGet(List::of)
                 .stream()
-                .filter(item -> shipmentId.equals(item.getShipmentId())) // matches JSON field "ShipmentId"
+                .filter(item -> shipmentId.equals(item.getShipmentId()))
                 .collect(Collectors.toList());
     }
-
 }

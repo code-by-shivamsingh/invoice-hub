@@ -1,28 +1,25 @@
 
 package com.jokati.invoice.controller;
 
-import com.jokati.invoice.service.ShipmentSummaryService;
-import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Shipment Summary REST API
- *
- * Provides endpoints to:
- *  - Fetch project-level shipment summary (prepared + consolidated + totals)
- *  - (Optional) Fetch summary filtered to a specific ShipmentId inside the project
- */
+import com.jokati.invoice.common.ApiResponse;
+import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.service.ShipmentSummaryService;
+import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @RestController
 @RequestMapping("/api/summary")
 @RequiredArgsConstructor
@@ -35,98 +32,74 @@ public class ShipmentSummaryController {
 
     /**
      * GET /api/summary/{projectId}
-     *
-     * Returns the full summary for the project:
-     *  - consolidated rows grouped by country
-     *  - per-country totals
-     *  - overall total shipment price
+     * Returns the full summary for the project (prepared+consolidated+totals).
+     * Node-style: 200 with {} if invalid/missing.
      */
-    @GetMapping("/{projectId}")
     @Operation(
         summary = "Get full shipment summary for a project",
-        description = "Prepares rows, consolidates by ShipmentId (if applicable), computes per-country and overall totals.",
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Summary returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid projectId"),
-            @ApiResponse(responseCode = "404", description = "Project not found or no data"),
-            @ApiResponse(responseCode = "500", description = "Server error")
-        }
+        description = "Prepares rows, consolidates by ShipmentId, computes per-country and overall totals."
     )
-    public ResponseEntity<SummaryInitResult> getProjectSummary(
-            @Parameter(description = "MongoDB ObjectId hex string of the project", example = "692af31934df801237c8fdda")
-            @PathVariable("projectId") String projectIdHex
-    ) {
+    @GetMapping(value = "/{projectId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getProjectSummary(@PathVariable("projectId") String projectIdHex) {
         log.info("GET /api/summary/{}", projectIdHex);
-
 
         SummaryInitResult result = shipmentSummaryService.getSummaryInit(projectIdHex);
         if (result == null) {
             log.warn("No summary result for projectId={}", projectIdHex);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            // Node-style 200 OK with {}
+            return ResponseUtil.okEmpty("OK");
         }
-
-        return ResponseEntity.ok(result);
+        return ResponseUtil.okObject(result, "Summary fetched successfully");
     }
 
     /**
      * GET /api/summary/{projectId}/shipment/{shipmentId}
-     *
-     * Returns the summary **filtered to a single ShipmentId** inside the project.
-     * Useful when a ShipmentId appears multiple times and you want totals for only that group.
-     *
-     * Note: This method expects that ShipmentSummaryService has a corresponding method.
-     * If not yet implemented, add one similar to getSummaryInit but filter rows before preparing:
-     *   - fetch project rows
-     *   - filter rows where row.getShipmentId().equals(shipmentId)
-     *   - then run prepare -> consolidate -> totals pipeline
+     * Returns the summary filtered to a single ShipmentId inside the project.
+     * Node-style: 200 with {} if invalid/missing.
      */
-    @GetMapping("/{projectId}/shipment/{shipmentId}")
     @Operation(
         summary = "Get shipment summary for a specific ShipmentId",
-        description = "Filters rows to the given ShipmentId, then prepares, consolidates and totals.",
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Filtered summary returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid projectId or shipmentId"),
-            @ApiResponse(responseCode = "404", description = "Project or shipment not found"),
-            @ApiResponse(responseCode = "500", description = "Server error")
-        }
+        description = "Filters rows to the given ShipmentId, then prepares, consolidates and totals."
     )
-    public ResponseEntity<SummaryInitResult> getSummaryByShipmentId(
-            @Parameter(description = "MongoDB ObjectId hex string of the project", example = "692af31934df801237c8fdda")
+    @GetMapping(value = "/{projectId}/shipment/{shipmentId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getSummaryByShipmentId(
             @PathVariable("projectId") String projectIdHex,
-            @Parameter(description = "ShipmentId within the project", example = "39134034331")
-            @PathVariable("shipmentId") @Schema(minLength = 1) String shipmentId
-    ) {
+            @PathVariable("shipmentId") String shipmentId) {
         log.info("GET /api/summary/{}/shipment/{}", projectIdHex, shipmentId);
 
         if (shipmentId == null || shipmentId.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            // Node-style 200 OK with {}
+            return ResponseUtil.okEmpty("OK");
         }
 
         ObjectId projectId;
         try {
             projectId = new ObjectId(projectIdHex);
         } catch (IllegalArgumentException ex) {
-            log.warn("Invalid ObjectId: {}", projectIdHex, ex);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            log.warn("Invalid ObjectId hex: {}", projectIdHex);
+            // Node-style 200 OK with {}
+            return ResponseUtil.okEmpty("OK");
         }
 
-         SummaryInitResult result = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
-
+        SummaryInitResult result = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
         if (result == null) {
             log.warn("No filtered summary for projectId={} shipmentId={}", projectIdHex, shipmentId);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            // Node-style 200 OK with {}
+            return ResponseUtil.okEmpty("OK");
         }
 
-        return ResponseEntity.ok(result);
+        return ResponseUtil.okObject(result, "Filtered summary fetched successfully");
     }
 
     /**
-     * Health check / simple ping
+     * Health check / simple ping (uses envelope).
      */
-    @GetMapping("/health")
+    @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Health check", description = "Returns 200 OK if controller is reachable.")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("OK");
+    public ResponseEntity<ApiResponse<Object>> health() {
+        return ResponseUtil.okObject(
+            java.util.Map.of("status", "OK"),
+            "Shipment summary service is healthy"
+        );
     }
 }

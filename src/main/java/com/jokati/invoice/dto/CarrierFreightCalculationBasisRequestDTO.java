@@ -1,9 +1,9 @@
 
 package com.jokati.invoice.dto;
 
-import lombok.Data;
-
 import java.util.Map;
+
+import lombok.Data;
 
 @Data
 public class CarrierFreightCalculationBasisRequestDTO {

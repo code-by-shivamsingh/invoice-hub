@@ -3,10 +3,12 @@ package com.jokati.invoice.repository;
 
 
 
-import com.jokati.invoice.model.ToleranceLimits;
+import java.util.Optional;
+
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
+
+import com.jokati.invoice.model.ToleranceLimits;
 
 @Repository
 public interface ToleranceLimitsRepository extends MongoRepository<ToleranceLimits, String> {

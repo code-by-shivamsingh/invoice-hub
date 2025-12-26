@@ -1,10 +1,13 @@
 
 package com.jokati.invoice.dto;
 
-import jakarta.validation.constraints.NotNull;
-import lombok.*;
-
 import java.util.Map;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Mirrors Node PATCH body:
