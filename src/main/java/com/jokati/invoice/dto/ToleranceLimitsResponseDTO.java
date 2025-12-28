@@ -17,7 +17,7 @@ private String id;
     private String companyId;
     private BigDecimal freightCostsPercent;
     private BigDecimal standardAdditionalCostsPercent;
-    private boolean onlyPositiveDeviation;
+    private Boolean onlyPositiveDeviation;
     private List<ToleranceDTO> ancillaryTolerances;
     private Instant createdAt;
     private Instant updatedAt;
