@@ -1298,7 +1298,8 @@ private int resolveRowStackFactor(Integer stackFactor, boolean stackable) {
     private double getPriceForZone(Map<String, Object> weightRow, String zoneId, String rateType, double normalizedChargeable) {
         Map<String, Object> prices = getNode(weightRow, "Prices");
         double unitPrice = toDouble(prices.get(zoneId));
-        return normalizedChargeable * unitPrice;
+//        return normalizedChargeable * unitPrice;
+        return unitPrice;
     }
 
     private double applyMinMaxIfAny(double price, Map<String, Object> zipRange, String rateType) {
