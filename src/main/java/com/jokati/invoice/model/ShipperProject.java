@@ -29,6 +29,8 @@ public class ShipperProject {
     /** Tenant/company identifier (same as userId/companyId for now) */
     @Indexed
     private String userId;
+    @Indexed
+    private String companyId;
 
     /** Project display name — we will match this to the carrier name case-insensitively */
     @Indexed
@@ -42,6 +44,7 @@ public class ShipperProject {
     private String contactName;
     private Double phoneNo;
     private String email;
+    private Boolean active;
 
     /** Dynamic fields equivalent to { strict: false } in Mongoose */
     private Map<String, Object> extra;  // ✅ fixed HTML entity

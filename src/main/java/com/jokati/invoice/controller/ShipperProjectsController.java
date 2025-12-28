@@ -93,6 +93,6 @@ public class ShipperProjectsController {
         log.info("Request delete : {}", projectId);
         var remaining = service.deleteByProjectId(projectId);
         // Message sits in the envelope; data contains only remaining projects
-        return ResponseUtil.ok(remaining, "Projekt erfolgreich gelöscht");
+        return ResponseUtil.ok(null,"Project deleted successfully");
     }
 }

@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class ShipperProjectResponseDTO {
     private String id;                     // hex string of ObjectId
     private String userId;
+    private String companyId;
     private String name;
     private String street;
     private String streetNo;
@@ -25,6 +26,7 @@ public class ShipperProjectResponseDTO {
     private String contactName;
     private Double phoneNo;
     private String email;
+    private Boolean active;
     private Map<String, Object> extra;     // dynamic content
     private Instant createdAt;
     private Instant updatedAt;

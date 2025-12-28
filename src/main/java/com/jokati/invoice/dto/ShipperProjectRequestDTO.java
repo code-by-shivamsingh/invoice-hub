@@ -20,6 +20,8 @@ public class ShipperProjectRequestDTO {
 
     @NotBlank(message = "userId is required")
     private String userId;  // Customer No is userId
+    
+    private String companyId; 
 
     @NotBlank(message = "name is required")
     private String name;  // company name 
@@ -48,6 +50,8 @@ public class ShipperProjectRequestDTO {
     
     @NotBlank(message = "Email Id is required")
     private String email;
+    
+    private Boolean active;
     
     
 

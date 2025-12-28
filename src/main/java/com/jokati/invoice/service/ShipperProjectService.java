@@ -25,7 +25,7 @@ public class ShipperProjectService {
 
     /** GET all by userId */
     public List<ShipperProjectResponseDTO> findByUserId(String userId) {
-        return repository.findByUserId(userId).stream()
+        return repository.findActiveOrUnsetByUserId(userId).stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
@@ -69,6 +69,7 @@ public class ShipperProjectService {
         var entity = ShipperProject.builder()
                 .id(new ObjectId())
                 .userId(req.getUserId())
+                .companyId(req.getCompanyId())
                 .name(req.getName())
                 .street(req.getStreet())
                 .streetNo(req.getStreetNo())
@@ -78,6 +79,7 @@ public class ShipperProjectService {
                 .contactName(req.getContactName())
                 .phoneNo(req.getPhoneNo())
                 .email(req.getEmail())
+                .active(req.getActive())
                 .extra(req.getExtra())
                 .build();
 
@@ -93,18 +95,18 @@ public class ShipperProjectService {
                 : req.get_id();
 
         if (idHex == null || idHex.isBlank()) {
-            throw new IllegalArgumentException("Ungültige Projekt-ID");
+            throw new IllegalArgumentException("Invalid project ID");
         }
 
         ObjectId id;
         try {
             id = new ObjectId(idHex);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Ungültige Projekt-ID");
+            throw new IllegalArgumentException("Invalid project ID");
         }
 
         var existing = repository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Projekt nicht gefunden"));
+                .orElseThrow(() -> new NoSuchElementException("Project not found"));
 
         // Apply updates (follow Node behavior)
         existing.setName(req.getName());
@@ -120,23 +122,21 @@ public class ShipperProjectService {
      * Mirrors Node handler.
      */
     @Transactional
-    public List<ShipperProjectResponseDTO> deleteByProjectId(String projectIdHex) {
+    public String deleteByProjectId(String projectIdHex) {
         ObjectId id;
         try {
             id = new ObjectId(projectIdHex);
         } catch (IllegalArgumentException e) {
-            throw new NoSuchElementException("Projekt nicht gefunden");
+            throw new NoSuchElementException("Project not found");
         }
 
         var existing = repository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Projekt nicht gefunden"));
+                .orElseThrow(() -> new NoSuchElementException("Project not found"));
+        existing.setActive(false);
+        // String userId = existing.getUserId();
+        repository.save(existing);
 
-        String userId = existing.getUserId();
-        repository.deleteById(id);
-
-        return repository.findByUserId(userId).stream()
-                .map(this::toResponseDTO)
-                .toList();
+        return "Project deactivated successfully";
     }
 
     /* -------- mapping -------- */
@@ -145,6 +145,7 @@ public class ShipperProjectService {
         return ShipperProjectResponseDTO.builder()
                 .id(entity.getId() != null ? entity.getId().toHexString() : null)
                 .userId(entity.getUserId())
+                .companyId(entity.getCompanyId())
                 .name(entity.getName())
                 .street(entity.getStreet())
                 .streetNo(entity.getStreetNo())
@@ -154,6 +155,7 @@ public class ShipperProjectService {
                 .contactName(entity.getContactName())
                 .phoneNo(entity.getPhoneNo())
                 .email(entity.getEmail())
+                .active(entity.getActive())
                 .extra(entity.getExtra())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
