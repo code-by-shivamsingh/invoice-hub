@@ -66,7 +66,7 @@ public class InvoiceReconciliationService {
         // Resolve shipper project id for this company + carrier
         final String projectIdHex;
         try {
-            projectIdHex = shipperProjectsService.getProjectIdHexByCarrier(companyId, carrierName);
+            projectIdHex = shipperProjectsService.getProjectIdHexByCarrier(companyId, carrierName);  // companyId == userId and carrierName = name in document
         } catch (Exception e) {
             // Convert checked to runtime for global handler
             throw new IllegalArgumentException("No shipper project found for companyId=" + companyId +
@@ -147,7 +147,7 @@ public class InvoiceReconciliationService {
             setDefaultsForShipment(shipment);
             return;
         }
-
+        
         SummaryInitResult summary = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
 
         BigDecimal orderTotal      = BigDecimal.ZERO; // Σ totalPrice per-country

@@ -45,6 +45,9 @@ public class InvoiceService {
         }
 
         // Pre-check duplicate; prefer unique index at DB to throw DuplicateKeyException
+        
+        
+    //    We have to uncomment below code
         boolean exists = repository.existsByCompanyIdAndInvoiceNumber(pathCompanyId, request.getInvoiceNumber());
         if (exists) {
             // If you have a unique index, DB will throw DuplicateKeyException; we mirror as 409
