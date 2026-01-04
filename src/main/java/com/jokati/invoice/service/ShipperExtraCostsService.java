@@ -46,4 +46,9 @@ public class ShipperExtraCostsService {
         }
         repository.deleteById(id);
     }
+
+	public Optional<ShipperExtraCosts> findByProjectId(String projectId) {
+		// TODO Auto-generated method stub
+		return repository.findByProjectId(projectId);
+	}
 }

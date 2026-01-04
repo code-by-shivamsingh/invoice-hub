@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
@@ -71,6 +72,20 @@ public class ShipperExtraCostsController {
         log.info("Request get : {}", id);
 
         return service.findById(id)
+                .map(costs -> ResponseUtil.okObject(
+                        toResponseDTO(costs),
+                        "Extra costs fetched successfully"
+                ))
+                // Node-style: 200 OK with {} if invalid/missing
+                .orElse(ResponseUtil.okEmpty("OK"));
+    }
+    
+    @Operation(summary = "Get shipper extra costs by projectID")
+    @GetMapping("/projectid")
+    public ResponseEntity<ApiResponse<Object>> getShipperExtraCostByProjectId(@RequestParam String projectId) {
+        log.info("Request get Project Id : {}", projectId);
+
+        return service.findByProjectId(projectId)
                 .map(costs -> ResponseUtil.okObject(
                         toResponseDTO(costs),
                         "Extra costs fetched successfully"

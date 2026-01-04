@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
@@ -79,6 +80,20 @@ public class ShipperRatesController {
                 .orElse(ResponseUtil.okEmpty("OK"));
     }
 
+    @Operation(summary = "Get shipper rates by ProjectId")
+    @GetMapping("/projectid")
+    public ResponseEntity<ApiResponse<Object>> getShipperRatesByProjectId(@RequestParam String projectId) {
+        log.info("Request getShipperRatesById : {}", projectId);
+
+        return service.findByProjectId(projectId)
+                .map(rates -> ResponseUtil.okObject(
+                        toResponseDTO(rates),
+                        "Shipper rates fetched successfully"
+                ))
+                // Node-style: 200 OK with {} when missing/invalid
+                .orElse(ResponseUtil.okEmpty("OK"));
+    }
+    
     @Operation(summary = "Delete shipper rates by ID")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Object>> deleteShipperRatesById(@PathVariable String id) {

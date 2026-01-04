@@ -50,8 +50,8 @@ public class ShipperFreightCalculationBasisService {
     /** Find by id (hex string) — returns Optional; Node-style handled in controller. */
     public Optional<ShipperFreightCalculationBasis> findByProjectId(String projectId) {
         try {
-            ObjectId id = new ObjectId(projectId);
-            return repository.findById(id);
+            
+            return repository.findByProjectId(projectId);
         } catch (IllegalArgumentException e) {
             // Invalid ObjectId format; mirror Node-style behavior by returning empty
             return Optional.empty();

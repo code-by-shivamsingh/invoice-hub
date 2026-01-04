@@ -48,4 +48,9 @@ public class ShipperRatesService {
         }
         repository.deleteById(id);
     }
+
+	public Optional<ShipperRates> findByProjectId(String projectId) {
+		// TODO Auto-generated method stub
+		return  repository.findByProjectId(projectId);
+	}
 }

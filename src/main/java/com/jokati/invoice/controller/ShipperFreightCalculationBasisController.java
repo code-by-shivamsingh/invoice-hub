@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
@@ -37,8 +38,8 @@ public class ShipperFreightCalculationBasisController {
 	}
 
 	@Operation(summary = "Get freight calculation basis by ID")
-	@GetMapping("/{projectId}")
-	public ResponseEntity<ApiResponse<Object>> get(@PathVariable String projectId) {
+	@GetMapping("/projectid")
+	public ResponseEntity<ApiResponse<Object>> getByProjectId(@RequestParam String projectId) {
 		log.info("Request get : {}", projectId);
 		return service.findByProjectId(projectId).map(
 				basis -> ResponseUtil.okObject(toResponseDTO(basis), "Freight calculation basis fetched successfully"))
