@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  *  - GET /api/diesel-floater/sources   : Infer available sources from the first year entry
  */
 @RestController
-@RequestMapping("/api/diesel-floater")
+@RequestMapping("/api/v1/diesel-floater")
 @Tag(name = "Diesel Floater API", description = "Manage Diesel Floater data (years → sources)")
 @Slf4j
 public class DieselFloaterController {

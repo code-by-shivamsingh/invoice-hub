@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/shipper-rates")
+@RequestMapping("/api/v1/shipper-rates")
 @Tag(name = "Shipper Rates API", description = "Manage shipper rates")
 public class ShipperRatesController {
     private static final Logger log = LoggerFactory.getLogger(ShipperRatesController.class);

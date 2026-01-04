@@ -27,7 +27,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/carrier-confirmation")
+@RequestMapping("/api/v1/carrier-confirmation")
 @Tag(name = "Carrier Confirmation API", description = "Create/Update and fetch carrier confirmation")
 public class CarrierConfirmationController {
 

@@ -21,7 +21,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @Tag(name = "Users API", description = "Create new Jokati users")
 public class CreateUserController {
     private static final Logger log = LoggerFactory.getLogger(CreateUserController.class);

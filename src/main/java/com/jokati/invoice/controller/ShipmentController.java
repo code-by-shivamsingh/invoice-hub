@@ -26,7 +26,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
 @RestController
-@RequestMapping("/api/shipment")
+@RequestMapping("/api/v1/shipment")
 @Tag(name = "Shipment API", description = "Operations related to shipment data")
 @Validated // enable @NotBlank validation on method parameters
 public class ShipmentController {

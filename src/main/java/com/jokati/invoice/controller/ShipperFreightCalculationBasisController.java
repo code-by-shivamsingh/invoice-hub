@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/shipper-freight-calculation-basis")
+@RequestMapping("/api/v1/shipper-freight-calculation-basis")
 @Tag(name = "Shipper Freight Calculation Basis API", description = "Manage freight calculation basis")
 public class ShipperFreightCalculationBasisController {
 	private static final Logger log = LoggerFactory.getLogger(ShipperFreightCalculationBasisController.class);

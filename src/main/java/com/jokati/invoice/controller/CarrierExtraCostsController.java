@@ -32,7 +32,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/carrier-extra-costs")
+@RequestMapping("/api/v1/carrier-extra-costs")
 @Tag(name = "Carrier Extra Costs API", description = "Manage carrier extra costs")
 public class CarrierExtraCostsController {
 

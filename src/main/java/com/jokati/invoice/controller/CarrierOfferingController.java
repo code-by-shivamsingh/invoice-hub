@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/carrier-offering")
+@RequestMapping("/api/v1/carrier-offering")
 @Tag(name = "Carrier Offering", description = "Create/Query carrier offerings")
 @RequiredArgsConstructor
 public class CarrierOfferingController {

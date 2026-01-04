@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/carrier-templates")
+@RequestMapping("/api/v1/carrier-templates")
 @Tag(name = "Carrier Templates API", description = "Manage carrier templates (single document)")
 public class CarrierTemplatesController {
     private static final Logger log = LoggerFactory.getLogger(CarrierTemplatesController.class);

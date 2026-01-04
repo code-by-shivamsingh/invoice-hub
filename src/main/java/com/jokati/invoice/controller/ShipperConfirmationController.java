@@ -32,7 +32,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/shipper-confirmation")
+@RequestMapping("/api/v1/shipper-confirmation")
 @Tag(name = "Shipper Confirmation API", description = "Create/Update and fetch shipper confirmation")
 @RequiredArgsConstructor
 public class ShipperConfirmationController {

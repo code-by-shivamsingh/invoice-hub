@@ -27,7 +27,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/carrier-freight-calculation-basis")
+@RequestMapping("/api/v1/carrier-freight-calculation-basis")
 @Tag(name = "Carrier Freight Calculation Basis API", description = "Manage carrier freight calculation basis")
 public class CarrierFreightCalculationBasisController {
 
