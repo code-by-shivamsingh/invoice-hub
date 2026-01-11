@@ -22,10 +22,12 @@ public class ApiException extends RuntimeException {
         this.errors = null;
     }
 
-    public ApiException(HttpStatus status, String code, String message, List<ErrorDetail> errors) {
-        super(message);
-        this.status = status;
+	public ApiException(HttpStatus status, String code, String message, List<ErrorDetail> details) {
+		// TODO Auto-generated constructor stub
+		super(message);
+		this.status = status;
         this.code = code;
-        this.errors = errors;
-    }
+        this.errors = details;
+	}
+
 }

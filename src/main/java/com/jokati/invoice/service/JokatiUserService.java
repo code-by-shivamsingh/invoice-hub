@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.jokati.invoice.common.ErrorCodes;
-import com.jokati.invoice.common.ErrorDetail;
 import com.jokati.invoice.dto.CarrierAddressDTO;
 import com.jokati.invoice.dto.NewUserRequestDTO;
 import com.jokati.invoice.exception.ApiException;
@@ -25,8 +24,7 @@ public class JokatiUserService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     ErrorCodes.VALIDATION_ERROR,
-                    "Invalid email format",
-                    java.util.List.of(new ErrorDetail(ErrorCodes.VALIDATION_ERROR, "Invalid email format", "email", user.getEmail()))
+                    "Invalid email format"
             );
         }
 
@@ -34,8 +32,7 @@ public class JokatiUserService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     ErrorCodes.VALIDATION_ERROR,
-                    "Password must be at least 8 characters",
-                    java.util.List.of(new ErrorDetail(ErrorCodes.VALIDATION_ERROR, "Password must be at least 8 characters", "password", null))
+                    "Password must be at least 8 characters"
             );
         }
 
