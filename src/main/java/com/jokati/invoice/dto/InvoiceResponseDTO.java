@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jokati.invoice.model.StatusInfo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,7 +39,7 @@ public class InvoiceResponseDTO {
     @JsonProperty("carrier")          private String carrier;
     @JsonProperty("invoice_total")    private BigDecimal invoiceTotal;
     @JsonProperty("difference")       private BigDecimal difference;
-    @JsonProperty("status")           private String status;
+    @JsonProperty("status")           private StatusInfo status;
 
     private Instant createdAt;
     private Instant updatedAt;

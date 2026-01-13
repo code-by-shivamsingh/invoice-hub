@@ -161,7 +161,78 @@ public class ShipmentSummaryService {
             log.error("getSummaryInit: error -> {}", ex.getMessage(), ex);
             return null;
         }
-    }
+    }  
+    
+ 
+    
+    public SummaryInitResult getSummaryInitWithMessage(String projectId) {
+        try {
+            log.info("getSummaryInitWithMessage: projectId={}", projectId);
+
+            var projectOpt = projectShipmentRepository.findByProjectId(projectId);
+            if (projectOpt.isEmpty()) {
+                log.warn("getSummaryInitWithMessage: no project for projectId={}", projectId);
+                return null;
+            }
+
+            var project = projectOpt.get();
+
+            
+            List<ShipmentItemDocument> filteredRows =
+                    Optional.ofNullable(project.getShipmentData())
+                            .orElseGet(ArrayList::new)
+                            .stream()
+                            .filter(item ->
+                                    item.getMessage() != null &&
+                                    !item.getMessage().trim().isEmpty()
+                            )
+                            .collect(Collectors.toList());
+
+            
+            Map<String, Object> freightBasis        = fetchFreightBasis(projectId);
+            Map<String, Object> rates               = fetchRates(projectId);
+            Map<String, Object> extraCosts          = fetchExtraCosts(projectId);
+            Map<String, Object> dieselFloaterMatrix = fetchDieselFloaterMatrix();
+
+            List<ShipmentItemDocument> calculatedRows = filteredRows.stream()
+                    .map(r -> calculateRow(r, freightBasis, rates, extraCosts, dieselFloaterMatrix))
+                    .collect(Collectors.toList());
+
+            Map<String, List<ShipmentItemDocument>> preparedByCountry =
+                    calculatedRows.stream()
+                            .collect(Collectors.groupingBy(
+                                    row -> Optional.ofNullable(row.getCountry()).orElse("INT"),
+                                    LinkedHashMap::new,
+                                    Collectors.toList()
+                            ));
+
+            Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
+                    createSortedConsolidatedShipmentData(
+                            preparedByCountry, extraCosts, dieselFloaterMatrix
+                    );
+
+            Map<String, RowSummedTotal> countriesTotals =
+                    createCountryRowTotal(consolidatedByCountry, extraCosts);
+
+            double overallTotalPrice = addTotalShipmentPrice(countriesTotals);
+
+            SummaryInitResult dto = new SummaryInitResult();
+            dto.setConsolidatedShipmentData(consolidatedByCountry);
+            dto.setShipmentTotalSummary(
+                    new ShipmentTotalSummary(countriesTotals, overallTotalPrice)
+            );
+            dto.setFetchedShipperExtraCosts(extraCosts);
+            dto.setDieselFloaterMatrix(dieselFloaterMatrix);
+
+            return dto;
+
+        } catch (Exception ex) {
+            log.error("getSummaryInitWithMessage: error", ex);
+            return null;
+        }
+    } 
+
+
 
     /**
      * Prepare consolidated summary filtered to one ShipmentId.

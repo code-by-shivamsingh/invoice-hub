@@ -4,6 +4,7 @@ package com.jokati.invoice.dto;
 import java.math.BigDecimal;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jokati.invoice.model.StatusInfo;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -34,5 +35,5 @@ public class ShipmentDTO {
     @JsonProperty("difference")         private BigDecimal difference;
 
     /** NEW: computed field; sent in responses */
-    @JsonProperty("status")             private String status;
+    @JsonProperty("status")             private StatusInfo status;
 }
