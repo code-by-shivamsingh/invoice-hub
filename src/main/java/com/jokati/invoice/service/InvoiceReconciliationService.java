@@ -15,10 +15,13 @@ import com.jokati.invoice.dto.ToleranceLimitsResponseDTO;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
 import com.jokati.invoice.model.ShipmentSummary;
+import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.repository.InvoiceRepository;
 import com.jokati.invoice.service.ShipmentSummaryService.RowSummedTotal;
 import com.jokati.invoice.service.ShipmentSummaryService.ShipmentTotalSummary;
 import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
+import static com.jokati.invoice.constants.BillingStatusConstants.*;
+
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,11 +101,14 @@ public class InvoiceReconciliationService {
                 : BigDecimal.ZERO;
 
         // Determine status & notify
-        String invoiceStatus;
+        StatusInfo invoiceStatus;
         boolean emailSent = false;
 
         if (invoiceDifference.compareTo(BigDecimal.ZERO) == 0) {
-            invoiceStatus = "Accepted";
+            invoiceStatus = StatusInfo.builder()
+            		.label(ACCEPTED)
+                    .color(COLOR_SUCCESS)
+                    .build();
             emailSent = sendSafe(templateIdAccepted, financeEmail, Map.of(
                     "companyId", companyId,
                     "carrierName", carrierName,
@@ -111,7 +117,10 @@ public class InvoiceReconciliationService {
             ));
         } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
                 && percentDifference.compareTo(allowedPercent) <= 0) {
-            invoiceStatus = "Tolerance accepted";
+            invoiceStatus = StatusInfo.builder()
+            		.label(TOLERANCE_ACCEPTED)
+                    .color(COLOR_WARNING)
+                    .build();
             emailSent = sendSafe(templateIdToleranceAccepted, financeEmail, Map.of(
                     "companyId", companyId,
                     "carrierName", carrierName,
@@ -120,7 +129,10 @@ public class InvoiceReconciliationService {
                     "percentDifference", percentDifference
             ));
         } else {
-            invoiceStatus = "Incorrect billing";
+        	invoiceStatus = StatusInfo.builder()
+        			.label(INCORRECT_BILLING)
+                    .color(COLOR_ERROR)
+                    .build();
         }
 
         // Shipment summary snapshot for invoice
@@ -176,8 +188,13 @@ public class InvoiceReconciliationService {
         BigDecimal difference = scale2(orderTotal.subtract(netAmount));
 
         shipment.setOrderTotal(orderTotal);
-        shipment.setDifference(difference);
-        shipment.setStatus(difference.compareTo(BigDecimal.ZERO) == 0 ? "Correct billing" : "Incorrect billing");
+        shipment.setDifference(difference); 
+        shipment.setStatus(
+        	    difference.compareTo(BigDecimal.ZERO) == 0
+        	        ? StatusInfo.builder().label(CORRECT_BILLING).color(COLOR_SUCCESS).build()
+        	        : StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build()
+        	);
+
 
         // (Optional) if your Shipment model has a surcharge field, set it here:
         // shipment.setSurchargeTotal(scale2(extraCostsTotal));
@@ -186,7 +203,7 @@ public class InvoiceReconciliationService {
     private void setDefaultsForShipment(Shipment s) {
         s.setOrderTotal(BigDecimal.ZERO);
         s.setDifference(BigDecimal.ZERO);
-        s.setStatus("Incorrect billing");
+        s.setStatus(StatusInfo.builder().label("Incorrect billing").color("#dc3545").build());
     }
 
     private ShipmentSummary buildShipmentSummary(Invoice invoice) {

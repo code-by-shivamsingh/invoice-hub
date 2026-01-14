@@ -90,6 +90,35 @@ public class ShipmentSummaryController {
 
         return ResponseUtil.okObject(result, "Filtered summary fetched successfully");
     }
+    
+    
+    /**
+     * GET /api/summary/{projectId}/with-message
+     * Returns shipment summary ONLY for rows where Message is present (not null / not empty).
+     * Node-style: 200 with {} if invalid/missing.
+     */
+    @Operation(
+        summary = "Get shipment summary with message only",
+        description = "Returns consolidated shipment summary filtered to rows having non-empty Message."
+    )
+    @GetMapping(value = "/{projectId}/with-message", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getProjectSummaryWithMessage(
+            @PathVariable("projectId") String projectIdHex) {
+
+        log.info("GET /api/summary/{}/with-message", projectIdHex);
+
+        SummaryInitResult result =
+                shipmentSummaryService.getSummaryInitWithMessage(projectIdHex);
+
+        if (result == null) {
+            log.warn("No message-based summary result for projectId={}", projectIdHex);
+            // Node-style 200 OK with {}
+            return ResponseUtil.okEmpty("OK");
+        }
+
+        return ResponseUtil.okObject(result, "Summary with message fetched successfully");
+    }
+
 
     /**
      * Health check / simple ping (uses envelope).

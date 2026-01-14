@@ -33,6 +33,6 @@ public class Shipment {
     /** NEW: computed as orderTotal - netAmountEur; null when missing inputs */
     private BigDecimal difference;
 
-    /** NEW: "Correct billing" when orderTotal exists and difference == 0, else "Incorrect billing" */
-    private String status;
+    /** NEW: billing status as object (label + color) */
+    private StatusInfo status;
 }

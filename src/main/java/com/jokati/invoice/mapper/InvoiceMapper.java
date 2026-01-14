@@ -63,7 +63,7 @@ public interface InvoiceMapper {
          @Mapping(target = "charges",    source = "charges"),
          @Mapping(target = "orderTotal", source = "orderTotal"),
          @Mapping(target = "difference", source = "difference"),
-         @Mapping(target = "status",     source = "status")
+         @Mapping(target = "status",     ignore = true)
      })
      Shipment toShipment(ShipmentDTO dto);
 
@@ -86,7 +86,8 @@ public interface InvoiceMapper {
          @Mapping(target = "shipmentSummary", source = "shipmentSummary"),
          @Mapping(target = "shipments",       source = "shipments"),
          @Mapping(target = "orderTotal",      source = "orderTotal"),
-         @Mapping(target = "status",          source = "status")
+         @Mapping(target = "status",          ignore = true)
+
      })
      Invoice toEntity(InvoiceRequestDTO dto);
 
@@ -102,7 +103,8 @@ public interface InvoiceMapper {
          @Mapping(target = "carrier",         expression = "java(entity.getSeller() != null ? unescapeHtml(entity.getSeller().getCompanyName()) : null)"),
          @Mapping(target = "invoiceTotal",    expression = "java(entity.getTotals() != null ? entity.getTotals().getGrossAmount() : null)"),
          @Mapping(target = "difference",      source = "invoiceDifference"),
-         @Mapping(target = "status",          source = "status")
+         @Mapping(target = "status", source = "status")
+        
      })
      InvoiceResponseDTO toResponse(Invoice entity);
 

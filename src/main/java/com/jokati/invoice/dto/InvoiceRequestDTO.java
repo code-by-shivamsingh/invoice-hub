@@ -37,6 +37,5 @@ public class InvoiceRequestDTO {
 
     /** NEW: Order total & status (optional in request; status can be computed) */
     @JsonProperty("order_total")             private BigDecimal orderTotal;
-    @JsonProperty("status")                  private String status;
     @JsonProperty("email_status")            private String emailStatus;
 }

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jokati.invoice.model.StatusInfo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,7 +44,7 @@ public class InvoiceListItemDTO {
 
     /** "Correct billing" only when difference == 0 and order_total present; else "Incorrect billing" */
     @JsonProperty("status")
-    private String status;
+    private StatusInfo status;
     
     @JsonProperty("email_status")
     private String emailStatus;
