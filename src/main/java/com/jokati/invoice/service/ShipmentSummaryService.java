@@ -431,6 +431,7 @@ public class ShipmentSummaryService {
             Map<String, Object> extraCosts,
             Map<String, Object> dieselFloaterMatrix
     ) {
+    	log.info("dieselFloaterMatrix is {}",dieselFloaterMatrix.isEmpty());
         Map<String, Map<String, Double>> sumsPerShipment = new LinkedHashMap<>();
         Map<String, Integer> lastIndexPerShipment = new LinkedHashMap<>();
         List<ShipmentItemDocument> out = new ArrayList<>();
@@ -454,7 +455,9 @@ public class ShipmentSummaryService {
         }
 
         for (int i = 0; i < consolidatedShipmentIds.size(); i++) {
+        	
             String sid = consolidatedShipmentIds.get(i);
+            log.info("consolidated shipment id " +sid);
             int lastIndex = lastIndexPerShipment.getOrDefault(sid, -1);
             if (lastIndex < 0) continue;
 
@@ -520,7 +523,9 @@ public class ShipmentSummaryService {
                     .undefined(base.getUndefined())
                     .build();
 
-            sumRow = calculateRow(sumRow,
+            if (country.isBlank()) country = "INT";
+            sumRow = calculateRow(
+            		sumRow,
                     Map.of(base.getCountry(), Map.of("IsConsolidated", true)),
                     Collections.emptyMap(),
                     Map.of(country, extraCosts.get(country)),
@@ -628,6 +633,7 @@ public class ShipmentSummaryService {
             Map<String, Object> dieselFloaterMatrix
     ) {
         try {
+        	log.info("dieselFloaterMatrix value under {}",dieselFloaterMatrix.isEmpty());
             // Country normalize
             String country = safeString(row.getCountry());
             if (country.isBlank()) country = "INT";
