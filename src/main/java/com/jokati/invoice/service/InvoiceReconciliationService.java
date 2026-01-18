@@ -54,7 +54,7 @@ public class InvoiceReconciliationService {
     @Transactional
     public Invoice reconcileAndPersist(Invoice invoice) {
         final String companyId   = safe(invoice.getCompanyId());
-        final String carrierName = invoice.getSeller() != null ? safe(invoice.getSeller().getCompanyName()) : "";
+        final String carrierName = safe(invoice.getCarrier());
 
         if (companyId.isBlank()) {
             throw new IllegalArgumentException("companyId must not be blank");
@@ -135,10 +135,6 @@ public class InvoiceReconciliationService {
                     .build();
         }
 
-        // Shipment summary snapshot for invoice
-        ShipmentSummary snapshot = buildShipmentSummary(invoice);
-        invoice.setShipmentSummary(snapshot);
-
         // Persist enriched invoice fields
         invoice.setOrderTotal(invoiceOrderTotal);
         invoice.setInvoiceDifference(invoiceDifference);
@@ -184,7 +180,7 @@ public class InvoiceReconciliationService {
         }
 
         orderTotal = scale2(orderTotal);
-        BigDecimal netAmount  = shipment.getNetAmountEur() != null ? scale2(shipment.getNetAmountEur()) : BigDecimal.ZERO;
+        BigDecimal netAmount  = shipment.getTotalPrice() != null ? scale2(shipment.getTotalPrice()) : BigDecimal.ZERO;
         BigDecimal difference = scale2(orderTotal.subtract(netAmount));
 
         shipment.setOrderTotal(orderTotal);
@@ -204,15 +200,6 @@ public class InvoiceReconciliationService {
         s.setOrderTotal(BigDecimal.ZERO);
         s.setDifference(BigDecimal.ZERO);
         s.setStatus(StatusInfo.builder().label("Incorrect billing").color("#dc3545").build());
-    }
-
-    private ShipmentSummary buildShipmentSummary(Invoice invoice) {
-        int totalShipments = invoice.getShipments() == null ? 0 : invoice.getShipments().size();
-        BigDecimal totalWeight = sumOrZero(invoice.getShipments(), Shipment::getWeightKg);
-        return ShipmentSummary.builder()
-                .totalShipments(totalShipments)
-                .totalWeightKg(totalWeight)
-                .build();
     }
 
     // ---------------- Helpers ----------------

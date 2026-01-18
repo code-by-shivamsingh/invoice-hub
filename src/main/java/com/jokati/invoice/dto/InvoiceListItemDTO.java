@@ -47,7 +47,7 @@ public class InvoiceListItemDTO {
     private StatusInfo status;
     
     @JsonProperty("email_status")
-    private String emailStatus;
+    private Boolean emailStatus;
 
     /** Include shipments in list response as requested */
     @JsonProperty("shipments")

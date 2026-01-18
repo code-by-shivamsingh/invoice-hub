@@ -33,13 +33,6 @@ public class FreightInvoiceRequest {
     private String currency;
 
     @NotNull @Valid
-    private PartyDTO seller;
-
-    @NotNull @Valid
-    @JsonProperty("bill_to")
-    private PartyDTO billTo;
-
-    @NotNull @Valid
     private TotalsDTO totals;
 
     @NotNull @Valid
