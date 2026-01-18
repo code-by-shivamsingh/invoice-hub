@@ -68,7 +68,10 @@ public class InvoiceService {
         Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
                 .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
                         ", invoiceNumber=" + invoiceNumber));
-        return mapper.toResponse(entity);
+     // Reconciliation pipeline
+        Invoice reconciled = invoiceReconciliation.reconcileAndPersist(entity);
+
+        return mapper.toResponse(reconciled);
     }
 
     /** Filtered list for UI (Carrier, Invoice Number, From/To dates) */
