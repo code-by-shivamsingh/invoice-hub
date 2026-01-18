@@ -36,7 +36,8 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<Object>> create(
             @PathVariable String companyId,
             @Valid @RequestBody InvoiceRequestDTO request) {
-        log.info("Invoice create: companyId={}, invoiceNumber={}", companyId, request.getInvoiceNumber());
+        log.info("Invoice create request recived : companyId={}, invoiceNumber={}", companyId, request.getInvoiceNumber());
+        log.debug("Invoice create request recived : companyId={}, invoiceNumber={} request is :{}", companyId, request.getInvoiceNumber(),request);
         InvoiceResponseDTO dto = service.create(companyId, request);
         return ResponseUtil.okObject(dto, "Invoice created successfully");
     }
