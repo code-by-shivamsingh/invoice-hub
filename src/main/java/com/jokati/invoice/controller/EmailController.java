@@ -133,14 +133,18 @@ public class EmailController {
 
         try {
             if (byId) {
-                emailService.sendEmailWithTemplateId(req.getTo(), req.getTemplateId(), req.getModel());
+                emailService.send(req.getTemplateId(),req.getTo(),req.getModel());
             } else {
-                emailService.sendEmailWithTemplateName(req.getTo(), req.getTemplateName(), req.getModel());
-            }
-            return ResponseUtil.withStatusEmpty(HttpStatus.ACCEPTED, "Templated email accepted for delivery");
-        } catch (ApiException ex) {
-            return ResponseUtil.error(ex.getStatus(), ex.getMessage(), ex.getErrors());
+                emailService.send(req.getTemplateName(),req.getTo(),req.getModel());
+       }
+          return ResponseUtil.withStatusEmpty(HttpStatus.ACCEPTED,"Templated email accepted for delivery");
+
+     } catch (ApiException ex) {
+            return ResponseUtil.error(ex.getStatus(),
+                                      ex.getMessage(),
+                                      ex.getErrors());
         }
+
     }
 }
 

@@ -250,9 +250,9 @@ public class InvoiceReconciliationService {
                 log.warn("Email skipped (recipient empty) templateId={}", templateId);
                 return false;
             }
-            emailService.sendEmailWithTemplateName(templateId, to, model);
+             emailService.send(templateId, to, model);
             return true;
-        } catch (Exception ex) {
+         } catch (Exception ex) {
             log.error("Email failed: {}", ex.getMessage(), ex);
             return false;
         }

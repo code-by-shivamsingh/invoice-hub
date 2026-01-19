@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.ShipmentItemRequestDTO;
 import com.jokati.invoice.dto.ShipmentRequestDTO;
 import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
 import com.jokati.invoice.service.ShipmentService;
@@ -84,4 +87,27 @@ public class ShipmentController {
         service.deleteByProjectId(projectId); // throws NoSuchElementException if not found
         return ResponseUtil.okEmpty("Shipment data deleted successfully");
     }
+    
+    @Operation(
+    	summary = "Update shipment item by projectId, shipmentId and uuid"
+    )
+    @PutMapping(
+            value = "/projects/{projectId}/shipments/{shipmentId}/items/{uuid}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<ApiResponse<Object>> updateShipmentItem(
+            @PathVariable @NotBlank String projectId,
+            @PathVariable @NotBlank String shipmentId,
+            @PathVariable @NotBlank String uuid,
+            @Valid @RequestBody ShipmentItemRequestDTO request) {
+
+        log.info("PUT /api/v1/projects/{}/shipments/{}/items/{}",projectId, shipmentId, uuid);
+
+        ShipmentSaveResponseDTO response =
+                service.updateShipmentItem(projectId, shipmentId, uuid, request);
+
+        return ResponseUtil.okObject(response,"Shipment item updated successfully");
+    }
+    
 }
