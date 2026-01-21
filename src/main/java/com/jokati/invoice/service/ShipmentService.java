@@ -12,6 +12,7 @@ import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jokati.invoice.dto.ShipmentItemRequestDTO;
 import com.jokati.invoice.dto.ShipmentItemResponseDTO;
 import com.jokati.invoice.dto.ShipmentRequestDTO;
 import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
@@ -104,4 +105,71 @@ public class ShipmentService {
                 .filter(item -> shipmentId.equals(item.getShipmentId()))
                 .collect(Collectors.toList());
     }
+    @Transactional
+    public ShipmentSaveResponseDTO updateShipmentItem(
+            String projectId,
+            String shipmentId,
+            String id,
+            ShipmentItemRequestDTO request) {
+
+        //Fetch aggregate document by projectId
+        ProjectShipmentDocument agg = repository.findByProjectId(projectId)
+                .orElseThrow(() ->
+                        new java.util.NoSuchElementException(
+                                "Shipment data not found for projectId: " + projectId
+                        ));
+
+        //Get shipmentData list from aggregate
+        List<ShipmentItemDocument> shipmentData = agg.getShipmentData();
+
+        if (shipmentData == null || shipmentData.isEmpty()) {
+            throw new java.util.NoSuchElementException(
+                    "No shipment data found for projectId: " + projectId
+            );
+        }
+
+        boolean updated = false;
+
+        //Find the exact shipment item using shipmentId and id (Id / id)
+        for (ShipmentItemDocument item : shipmentData) {
+
+            boolean idMatched =
+                    id.equals(item.getIdUpper()) ||
+                    id.equals(item.getIdLower());
+
+            if (shipmentId.equals(item.getShipmentId()) && idMatched) {
+
+                // Update only mutable fields (do NOT touch id or shipmentId)
+                ShipmentMapper.updateDocument(item, request);
+
+                updated = true;
+                break;
+            }
+        }
+
+        //Throw error if shipment item was not found
+        if (!updated) {
+            throw new java.util.NoSuchElementException(
+                    "Shipment item not found for shipmentId: "
+                            + shipmentId + " and id: " + id
+            );
+        }
+
+        //Save the updated aggregate document
+        repository.save(agg);
+
+        //Build and return response using existing mapper
+        List<ShipmentItemResponseDTO> responseItems =
+                agg.getShipmentData().stream()
+                        .map(ShipmentMapper::toResponse)
+                        .toList();
+
+        return ShipmentSaveResponseDTO.builder()
+                .shipmentData(responseItems)
+                .build();
+    }
+
+
+    
+
 }

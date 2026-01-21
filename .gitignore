@@ -44,3 +44,5 @@ nbdist/
 # Backup files
 *.bak
 *.swp
+.metadata/
+logs/
