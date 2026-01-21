@@ -89,23 +89,23 @@ public class ShipmentController {
     }
     
     @Operation(
-    	summary = "Update shipment item by projectId, shipmentId and uuid"
+    	summary = "Update shipment item by projectId, shipmentId and id"
     )
     @PutMapping(
-            value = "/projects/{projectId}/shipments/{shipmentId}/items/{uuid}",
+            value = "/projects/{projectId}/shipments/{shipmentId}/items/{id}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<ApiResponse<Object>> updateShipmentItem(
             @PathVariable @NotBlank String projectId,
             @PathVariable @NotBlank String shipmentId,
-            @PathVariable @NotBlank String uuid,
+            @PathVariable @NotBlank String id,
             @Valid @RequestBody ShipmentItemRequestDTO request) {
 
-        log.info("PUT /api/v1/projects/{}/shipments/{}/items/{}",projectId, shipmentId, uuid);
+        log.info("PUT /api/v1/projects/{}/shipments/{}/items/{}",projectId, shipmentId, id);
 
         ShipmentSaveResponseDTO response =
-                service.updateShipmentItem(projectId, shipmentId, uuid, request);
+                service.updateShipmentItem(projectId, shipmentId, id, request);
 
         return ResponseUtil.okObject(response,"Shipment item updated successfully");
     }

@@ -109,7 +109,7 @@ public class ShipmentService {
     public ShipmentSaveResponseDTO updateShipmentItem(
             String projectId,
             String shipmentId,
-            String uuid,
+            String id,
             ShipmentItemRequestDTO request) {
 
         //Fetch aggregate document by projectId
@@ -130,14 +130,14 @@ public class ShipmentService {
 
         boolean updated = false;
 
-        //Find the exact shipment item using shipmentId and uuid (Id / id)
+        //Find the exact shipment item using shipmentId and id (Id / id)
         for (ShipmentItemDocument item : shipmentData) {
 
-            boolean uuidMatched =
-                    uuid.equals(item.getIdUpper()) ||
-                    uuid.equals(item.getIdLower());
+            boolean idMatched =
+                    id.equals(item.getIdUpper()) ||
+                    id.equals(item.getIdLower());
 
-            if (shipmentId.equals(item.getShipmentId()) && uuidMatched) {
+            if (shipmentId.equals(item.getShipmentId()) && idMatched) {
 
                 // Update only mutable fields (do NOT touch id or shipmentId)
                 ShipmentMapper.updateDocument(item, request);
@@ -151,7 +151,7 @@ public class ShipmentService {
         if (!updated) {
             throw new java.util.NoSuchElementException(
                     "Shipment item not found for shipmentId: "
-                            + shipmentId + " and uuid: " + uuid
+                            + shipmentId + " and id: " + id
             );
         }
 
