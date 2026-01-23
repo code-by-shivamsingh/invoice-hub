@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jokati.invoice.dto.InvoiceListItemDTO;
+import com.jokati.invoice.dto.InvoicePageResponseDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
 import com.jokati.invoice.dto.InvoiceResponseDTO;
 import com.jokati.invoice.dto.ShipmentDTO;
@@ -106,6 +107,64 @@ public class InvoiceService {
         List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
         return invoices.stream().map(mapper::toListItem).toList();
     }
+    
+    
+    public InvoicePageResponseDTO listFilteredPaged(String companyId,
+            String carrier,
+            String invoiceNumber,
+            String fromDate,
+            String toDate,
+            int page,
+            int size) {
+
+if (size > 100) size = 100; 
+
+Query q = new Query();
+q.addCriteria(Criteria.where("companyId").is(companyId));
+
+if (carrier != null && !carrier.isBlank() && !"All".equalsIgnoreCase(carrier)) {
+q.addCriteria(Criteria.where("seller.companyName").is(carrier));
+}
+
+if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
+}
+
+LocalDate from = parseDateFlexible(fromDate);
+LocalDate to   = parseDateFlexible(toDate);
+
+if (from != null && to != null) {
+q.addCriteria(Criteria.where("invoiceDate").gte(from).lte(to));
+} 
+else if (from != null) {
+q.addCriteria(Criteria.where("invoiceDate").gte(from));
+} 
+else if (to != null) {
+q.addCriteria(Criteria.where("invoiceDate").lte(to));
+}
+
+// SORT
+q.with(org.springframework.data.domain.Sort.by(
+org.springframework.data.domain.Sort.Direction.DESC, "invoiceDate"));
+
+// PAGINATION
+q.skip((long) page * size);
+q.limit(size);
+
+List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
+long total = mongoTemplate.count(Query.of(q).skip(0).limit(0), Invoice.class);
+
+List<InvoiceListItemDTO> dtoList = invoices.stream().map(mapper::toListItem).toList();
+
+return InvoicePageResponseDTO.builder()
+.data(dtoList)
+.page(page)
+.size(size)
+.totalElements(total)
+.totalPages((int) Math.ceil((double) total / size))
+.build();
+}
+
 
     @Transactional
     public void delete(String companyId, String invoiceNumber) {

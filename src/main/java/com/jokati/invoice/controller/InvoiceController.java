@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.InvoiceListItemDTO;
+import com.jokati.invoice.dto.InvoicePageResponseDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
 import com.jokati.invoice.dto.InvoiceResponseDTO;
 import com.jokati.invoice.dto.ShipmentDTO;
@@ -100,4 +101,24 @@ public class InvoiceController {
         InvoiceResponseDTO response = service.addShipment(companyId, invoiceNumber, dto);
         return ResponseUtil.okObject(response, "Shipment added to invoice successfully");
     }
+    
+    @Operation(summary = "Get filtered invoices with pagination")
+    @GetMapping("/paged")
+    public ResponseEntity<ApiResponse<Object>> listFilteredPaged(
+            @PathVariable String companyId,
+            @RequestParam(required = false) String carrier,
+            @RequestParam(required = false) String invoiceNumber,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        log.info("Invoice paged list: companyId={}, page={}, size={}", companyId, page, size);
+
+        InvoicePageResponseDTO list = service.listFilteredPaged(companyId, carrier, invoiceNumber, fromDate, toDate, page, size);
+
+        return ResponseUtil.okObject(list, "Invoices fetched successfully");
+    }
+
 }
