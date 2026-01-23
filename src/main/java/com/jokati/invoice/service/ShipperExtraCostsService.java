@@ -1,6 +1,9 @@
 
 package com.jokati.invoice.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -51,4 +54,37 @@ public class ShipperExtraCostsService {
 		// TODO Auto-generated method stub
 		return repository.findByProjectId(projectId);
 	}
+	
+	public List<String> getCountriesByProjectId(String projectId) {
+
+	    ShipperExtraCosts costs = repository.findByProjectId(projectId)
+	            .orElseThrow(() -> new NoSuchElementException("Extra costs not found for projectId: " + projectId));
+
+	    return new ArrayList<>(costs.getExtraCosts().keySet());
+	}
+	
+	public Object getExtraCostByCountry(String projectId, String countryCode) {
+
+	    ShipperExtraCosts costs = repository.findByProjectId(projectId)
+	            .orElseThrow(() -> new NoSuchElementException("Extra costs not found for projectId: " + projectId));
+
+	    Map<String, Object> extraCosts = costs.getExtraCosts();
+
+	    // If countryCode not provided → take first country
+	    if (countryCode == null || countryCode.isEmpty()) {
+	        countryCode = extraCosts.keySet().stream()
+	                .findFirst()
+	                .orElseThrow(() -> new NoSuchElementException("No countries configured"));
+	    }
+
+	    Object cost = extraCosts.get(countryCode);
+
+	    if (cost == null) {
+	        throw new NoSuchElementException("Extra cost not configured for country: " + countryCode);
+	    }
+
+	    return cost;
+	}
+
+
 }

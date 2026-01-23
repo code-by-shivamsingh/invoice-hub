@@ -77,6 +77,31 @@ public class ShipperFreightCalculationBasisController {
 		service.delete(id);
 		return ResponseUtil.okEmpty("Freight calculation basis deleted successfully");
 	}
+	
+	@Operation(summary = "Get freight calculation countries by projectId")
+	@GetMapping("/project/{projectId}/countries")
+	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@PathVariable String projectId) {
+	    log.info("Request get freight countries projectId={}", projectId);
+
+	    var countries = service.getCountriesByProjectId(projectId);
+
+	    return ResponseUtil.okObject(countries, "Countries fetched successfully");
+	}
+	
+	@Operation(summary = "Get freight calculation basis by projectId and countryCode")
+	@GetMapping("/project/{projectId}/country-basis")
+	public ResponseEntity<ApiResponse<Object>> getBasisByCountry(
+	        @PathVariable String projectId,
+	        @RequestParam(required = false) String countryCode) {
+
+	    log.info("Request get freight basis projectId={}, countryCode={}", projectId, countryCode);
+
+	    Object data = service.getBasisByCountry(projectId, countryCode);
+
+	    return ResponseUtil.okObject(data, "Freight basis fetched successfully");
+	}
+
+
 
 	/* ---------- mapping helper ---------- */
 

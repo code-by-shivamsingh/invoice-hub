@@ -1,6 +1,9 @@
 
 package com.jokati.invoice.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -53,4 +56,38 @@ public class ShipperRatesService {
 		// TODO Auto-generated method stub
 		return  repository.findByProjectId(projectId);
 	}
+	
+	// Get country list by projectId
+	public List<String> getCountriesByProjectId(String projectId) {
+
+	    ShipperRates rates = repository.findByProjectId(projectId)
+	            .orElseThrow(() -> new NoSuchElementException("Shipper rates not found for projectId: " + projectId));
+
+	    return new ArrayList<>(rates.getRates().keySet());
+	}
+
+	// Get rate by country (default first country)
+	public Object getRateByCountry(String projectId, String countryCode) {
+
+	    ShipperRates rates = repository.findByProjectId(projectId)
+	            .orElseThrow(() -> new NoSuchElementException("Shipper rates not found for projectId: " + projectId));
+
+	    Map<String, Object> rateMap = rates.getRates();
+
+	    // If countryCode not provided → take first country
+	    if (countryCode == null || countryCode.isEmpty()) {
+	        countryCode = rateMap.keySet().stream()
+	                .findFirst()
+	                .orElseThrow(() -> new NoSuchElementException("No countries configured"));
+	    }
+
+	    Object rate = rateMap.get(countryCode);
+
+	    if (rate == null) {
+	        throw new NoSuchElementException("Rate not configured for country: " + countryCode);
+	    }
+
+	    return rate;
+	}
+
 }
