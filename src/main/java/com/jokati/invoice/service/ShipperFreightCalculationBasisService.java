@@ -1,6 +1,9 @@
 
 package com.jokati.invoice.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -67,6 +70,42 @@ public class ShipperFreightCalculationBasisService {
         }
         repository.deleteById(id);
     }
+    
+    public List<String> getCountriesByProjectId(String projectId) {
+
+        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
+            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+
+        return new ArrayList<>(basis.getCountries().keySet()); 
+    }
+    
+    
+    public Object getBasisByCountry(String projectId, String countryCode) {
+
+        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
+            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+
+        Map<String, Object> countriesMap = basis.getCountries();
+
+        // If countryCode not provided → take first country
+        if (countryCode == null || countryCode.isEmpty()) {
+            countryCode = countriesMap.keySet().stream()
+                    .findFirst()
+                    .orElseThrow(() -> new NoSuchElementException("No countries configured"));
+        }
+
+        Object data = countriesMap.get(countryCode);
+
+        if (data == null) {
+            throw new NoSuchElementException("Basis not configured for country: " + countryCode);
+        }
+
+        return data;
+    }
+
+
+    
+    
 
     /* ---------- helpers ---------- */
 
