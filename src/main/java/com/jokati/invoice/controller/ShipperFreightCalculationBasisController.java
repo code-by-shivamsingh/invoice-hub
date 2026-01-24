@@ -79,8 +79,9 @@ public class ShipperFreightCalculationBasisController {
 	}
 	
 	@Operation(summary = "Get freight calculation countries by projectId")
-	@GetMapping("/project/{projectId}/countries")
-	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@PathVariable String projectId) {
+	@GetMapping("/countries")
+	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@RequestParam String projectId)
+ {
 	    log.info("Request get freight countries projectId={}", projectId);
 
 	    var countries = service.getCountriesByProjectId(projectId);
@@ -89,10 +90,11 @@ public class ShipperFreightCalculationBasisController {
 	}
 	
 	@Operation(summary = "Get freight calculation basis by projectId and countryCode")
-	@GetMapping("/project/{projectId}/country-basis")
+	@GetMapping("/country-basis")
 	public ResponseEntity<ApiResponse<Object>> getBasisByCountry(
-	        @PathVariable String projectId,
-	        @RequestParam(required = false) String countryCode) {
+	        @RequestParam String projectId,
+	        @RequestParam(required = false) String countryCode)
+ {
 
 	    log.info("Request get freight basis projectId={}, countryCode={}", projectId, countryCode);
 

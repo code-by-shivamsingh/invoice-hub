@@ -104,19 +104,19 @@ public class ShipperExtraCostsController {
     }
     
     @Operation(summary = "Get country list by projectId")
-    @GetMapping("/project/{projectId}/countries")
-    public ResponseEntity<ApiResponse<Object>> getCountries(@PathVariable String projectId) {
+    @GetMapping("/countries")
+    public ResponseEntity<ApiResponse<Object>> getCountries(@RequestParam String projectId) {
         log.info("Request get countries projectId={}", projectId);
 
         var countries = service.getCountriesByProjectId(projectId);
 
         return ResponseUtil.okObject(countries, "Countries fetched successfully");
     }
-    
+
     @Operation(summary = "Get shipper extra cost by projectId and countryCode")
-    @GetMapping("/project/{projectId}/country-cost")
+    @GetMapping("/country-cost")
     public ResponseEntity<ApiResponse<Object>> getCountryCost(
-            @PathVariable String projectId,
+            @RequestParam String projectId,
             @RequestParam(required = false) String countryCode) {
 
         log.info("Request get extra cost projectId={}, countryCode={}", projectId, countryCode);
@@ -125,6 +125,7 @@ public class ShipperExtraCostsController {
 
         return ResponseUtil.okObject(cost, "Extra cost fetched successfully");
     }
+
 
 
 

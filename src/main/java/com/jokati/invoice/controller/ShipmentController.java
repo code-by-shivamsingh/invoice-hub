@@ -110,4 +110,21 @@ public class ShipmentController {
         return ResponseUtil.okObject(response,"Shipment item updated successfully");
     }
     
-}
+    @Operation(summary = "Get paginated list of shipment items by projectId")
+    @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getShipmentList(
+            @RequestParam @NotBlank String projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        log.info("GET /api/v1/shipment/list projectId={} page={} size={}",
+                projectId, page, size);
+
+        var pagedResult = service.getShipmentList(projectId, page, size);
+
+        return ResponseUtil.okObject(
+                pagedResult,
+                "Paginated shipment list fetched successfully"
+                );
+    }
+    }
