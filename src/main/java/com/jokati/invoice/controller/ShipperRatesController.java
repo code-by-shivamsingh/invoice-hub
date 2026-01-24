@@ -104,19 +104,19 @@ public class ShipperRatesController {
     }
     
     @Operation(summary = "Get shipper rates countries by projectId")
-    @GetMapping("/project/{projectId}/countries")
-    public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@PathVariable String projectId) {
+    @GetMapping("/countries")
+    public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@RequestParam String projectId) {
         log.info("Request get shipper rate countries projectId={}", projectId);
 
         var countries = service.getCountriesByProjectId(projectId);
 
         return ResponseUtil.okObject(countries, "Countries fetched successfully");
     }
-    
+
     @Operation(summary = "Get shipper rates by projectId and countryCode")
-    @GetMapping("/project/{projectId}/country-rate")
+    @GetMapping("/country-rate")
     public ResponseEntity<ApiResponse<Object>> getRateByCountry(
-            @PathVariable String projectId,
+            @RequestParam String projectId,
             @RequestParam(required = false) String countryCode) {
 
         log.info("Request get shipper rate projectId={}, countryCode={}", projectId, countryCode);
@@ -125,6 +125,7 @@ public class ShipperRatesController {
 
         return ResponseUtil.okObject(rate, "Rate fetched successfully");
     }
+
 
 
 

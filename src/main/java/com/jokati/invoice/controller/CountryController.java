@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.CountryRequestDTO;
+import com.jokati.invoice.dto.CountryResponseDTO;
 import com.jokati.invoice.mapper.CountryMapper;
 import com.jokati.invoice.model.Country;
 import com.jokati.invoice.service.CountryService;
@@ -44,15 +45,18 @@ public class CountryController {
     public ResponseEntity<ApiResponse<Object>> getCountries() {
         log.info("Request getCountries");
 
-        List<Country> countries = countryService.getAllCountries();
+        List<CountryResponseDTO> countries = countryService.getAllCountries()
+                .stream()
+                .map(CountryMapper::toResponseDTO)   
+                .toList();
 
         if (countries == null || countries.isEmpty()) {
-            // Node-style: 200 OK with {}
             return ResponseUtil.okEmpty("OK");
         }
 
         return ResponseUtil.okObject(countries, "Countries fetched successfully");
     }
+
 
   
     @Operation(summary = "Create country")
