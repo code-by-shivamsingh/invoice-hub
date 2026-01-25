@@ -7,6 +7,7 @@ public class CountryResponseDTO {
     private String id;
     private String code;
     private String name;
+    private String getlocale;
     private String flagUrl;
 
 }

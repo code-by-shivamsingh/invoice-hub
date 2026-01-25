@@ -86,6 +86,7 @@ public interface InvoiceMapper {
         @Mapping(target = "invoiceTotal",     expression = "java(entity.getTotals() != null ? entity.getTotals().getGrossAmount() : null)"),
         @Mapping(target = "difference",       source = "invoiceDifference"),
         @Mapping(target = "status",           source = "status"),
+        @Mapping(target = "emailStatus",      source = "emailStatus"),
         @Mapping(target = "createdAt",        source = "createdAt"),
         @Mapping(target = "updatedAt",        source = "updatedAt")
     })
@@ -100,8 +101,8 @@ public interface InvoiceMapper {
         @Mapping(target = "invoiceTotal",  expression = "java(entity.getTotals() != null ? entity.getTotals().getGrossAmount() : null)"),
         @Mapping(target = "difference",    source = "invoiceDifference"),
         @Mapping(target = "status",        source = "status"),
-        @Mapping(target = "shipments",     source = "shipments"),
-        @Mapping(target = "emailStatus",   source = "emailStatus")
+        @Mapping(target = "emailStatus",   source = "emailStatus"),
+        @Mapping(target = "shipments",     ignore = true)  
     })
     InvoiceListItemDTO toListItem(Invoice entity);
 
