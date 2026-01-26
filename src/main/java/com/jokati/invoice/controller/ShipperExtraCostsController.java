@@ -102,6 +102,32 @@ public class ShipperExtraCostsController {
         // Return node-style {} with message in envelope
         return ResponseUtil.okEmpty("Extra costs deleted successfully");
     }
+    
+    @Operation(summary = "Get country list by projectId")
+    @GetMapping("/countries")
+    public ResponseEntity<ApiResponse<Object>> getCountries(@RequestParam String projectId) {
+        log.info("Request get countries projectId={}", projectId);
+
+        var countries = service.getCountriesByProjectId(projectId);
+
+        return ResponseUtil.okObject(countries, "Countries fetched successfully");
+    }
+
+    @Operation(summary = "Get shipper extra cost by projectId and countryCode")
+    @GetMapping("/country-cost")
+    public ResponseEntity<ApiResponse<Object>> getCountryCost(
+            @RequestParam String projectId,
+            @RequestParam(required = false) String countryCode) {
+
+        log.info("Request get extra cost projectId={}, countryCode={}", projectId, countryCode);
+
+        Object cost = service.getExtraCostByCountry(projectId, countryCode);
+
+        return ResponseUtil.okObject(cost, "Extra cost fetched successfully");
+    }
+
+
+
 
     /* ---------- mapping helpers ---------- */
 

@@ -147,4 +147,77 @@ public final class ShipmentMapper {
                 .undefined(s.getUndefined())
                 .build();
     }
+    
+ // Update existing Document from Request (PUT use-case)
+ public static void updateDocument(
+         ShipmentItemDocument target,
+         ShipmentItemRequestDTO r) {
+
+     target.setShipmentDate(r.getShipmentDate());
+     target.setZipCodeShipper(r.getZipCodeShipper());
+     target.setZipCodeConsignee(r.getZipCodeConsignee());
+     target.setCity(r.getCity());
+     target.setCountry(r.getCountry());
+     target.setLength(r.getLength());
+     target.setWide(r.getWide());
+     target.setHeight(r.getHeight());
+     target.setLoadingMeters(r.getLoadingMeters());
+     target.setCubicMeters(r.getCubicMeters());
+     target.setPalletCount(r.getPalletCount());
+     target.setPackagingType(r.getPackagingType());
+     target.setEffectiveWeight(r.getEffectiveWeight());
+     target.setChargeableWeight(r.getChargeableWeight());
+     target.setMinimumWeight(r.getMinimumWeight());
+     target.setWeightByCubicMeters(r.getWeightByCubicMeters());
+     target.setWeightByLoadingMeters(r.getWeightByLoadingMeters());
+     target.setStackable(r.getStackable());
+     target.setStackFactor(r.getStackFactor());
+     target.setStackId(r.getStackId());
+     target.setStackFootprintLoadingMeters(r.getStackFootprintLoadingMeters());
+
+     target.setExpressNextDay(r.getExpressNextDay());
+     target.setExpress12(r.getExpress12());
+     target.setExpress10(r.getExpress10());
+     target.setExpress8(r.getExpress8());
+     target.setFixtermin(r.getFixtermin());
+     target.setEmailAvis(r.getEmailAvis());
+     target.setPhoneAvis(r.getPhoneAvis());
+     target.setBookingInAvis(r.getBookingInAvis());
+
+     target.setDangerousGoodsSurcharge(r.getDangerousGoodsSurcharge());
+     target.setLongGoodsSurcharge(r.getLongGoodsSurcharge());
+     target.setShortWeekSurcharge(r.getShortWeekSurcharge());
+     target.setPalletExchange(r.getPalletExchange());
+     target.setPalletBoxExchange(r.getPalletBoxExchange());
+     target.setCarrierCertificate(r.getCarrierCertificate());
+
+     target.setB2cNationalSurcharge(r.getB2cNationalSurcharge());
+     target.setB2cInternationalSurcharge(r.getB2cInternationalSurcharge());
+     target.setSecurityFee(r.getSecurityFee());
+     target.setInsurance(r.getInsurance());
+     target.setPortiPapiere(r.getPortiPapiere());
+
+     target.setCustom1(r.getCustom1());
+     target.setCustom2(r.getCustom2());
+     target.setCustom3(r.getCustom3());
+     target.setCustom4(r.getCustom4());
+     target.setCustom5(r.getCustom5());
+
+     target.setMessage(r.getMessage());
+     target.setErrorType(r.getErrorType());
+     target.setPrice(r.getPrice());
+     target.setTotalPrice(r.getTotalPrice());
+     target.setExtraCostsTotalPrice(r.getExtraCostsTotalPrice());
+     target.setToll(r.getToll());
+     target.setTollPercent(r.getTollPercent());
+     target.setDiesel(r.getDiesel());
+     target.setDieselPercent(r.getDieselPercent());
+
+     target.setIsConsolidated(r.getIsConsolidated());
+     target.setIsConsolidatedSum(r.getIsConsolidatedSum());
+     target.setHasPackagingType(r.getHasPackagingType());
+     target.setProjectType(r.getProjectType());
+     target.setUndefined(r.getUndefined());
+ }
+
 }

@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.ShipmentItemRequestDTO;
 import com.jokati.invoice.dto.ShipmentRequestDTO;
 import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
 import com.jokati.invoice.service.ShipmentService;
@@ -84,4 +87,44 @@ public class ShipmentController {
         service.deleteByProjectId(projectId); // throws NoSuchElementException if not found
         return ResponseUtil.okEmpty("Shipment data deleted successfully");
     }
-}
+    
+    @Operation(
+    	summary = "Update shipment item by projectId, shipmentId and id"
+    )
+    @PutMapping(
+            value = "/projects/{projectId}/shipments/{shipmentId}/items/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<ApiResponse<Object>> updateShipmentItem(
+            @PathVariable @NotBlank String projectId,
+            @PathVariable @NotBlank String shipmentId,
+            @PathVariable @NotBlank String id,
+            @Valid @RequestBody ShipmentItemRequestDTO request) {
+
+        log.info("PUT /api/v1/projects/{}/shipments/{}/items/{}",projectId, shipmentId, id);
+
+        ShipmentSaveResponseDTO response =
+                service.updateShipmentItem(projectId, shipmentId, id, request);
+
+        return ResponseUtil.okObject(response,"Shipment item updated successfully");
+    }
+    
+    @Operation(summary = "Get paginated list of shipment items by projectId")
+    @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Object>> getShipmentList(
+            @RequestParam @NotBlank String projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        log.info("GET /api/v1/shipment/list projectId={} page={} size={}",
+                projectId, page, size);
+
+        var pagedResult = service.getShipmentList(projectId, page, size);
+
+        return ResponseUtil.okObject(
+                pagedResult,
+                "Paginated shipment list fetched successfully"
+                );
+    }
+    }

@@ -1,10 +1,13 @@
-
 package com.jokati.invoice.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -12,6 +15,7 @@ import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jokati.invoice.dto.ShipmentItemRequestDTO;
 import com.jokati.invoice.dto.ShipmentItemResponseDTO;
 import com.jokati.invoice.dto.ShipmentRequestDTO;
 import com.jokati.invoice.dto.ShipmentSaveResponseDTO;
@@ -28,80 +32,133 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ShipmentService {
 
-    private final ProjectShipmentRepository repository;
+	private final ProjectShipmentRepository repository;
 
-    public Optional<ShipmentSaveResponseDTO> getByProjectId(String projectId) {
-        return repository.findByProjectId(projectId)
-                .map(ProjectShipmentDocument::getShipmentData)
-                .map(list -> list == null ? List.<ShipmentItemDocument>of() : list)
-                .map(list -> list.stream().map(ShipmentMapper::toResponse).collect(Collectors.toList()))
-                .map(resList -> ShipmentSaveResponseDTO.builder().shipmentData(resList).build());
-    }
+	public Optional<ShipmentSaveResponseDTO> getByProjectId(String projectId) {
+		return repository.findByProjectId(projectId).map(ProjectShipmentDocument::getShipmentData)
+				.map(list -> list == null ? List.<ShipmentItemDocument>of() : list)
+				.map(list -> list.stream().map(ShipmentMapper::toResponse).collect(Collectors.toList()))
+				.map(resList -> ShipmentSaveResponseDTO.builder().shipmentData(resList).build());
+	}
 
-    @Transactional
-    public ShipmentSaveResponseDTO saveBatch(ShipmentRequestDTO request) {
-        ProjectShipmentDocument agg = repository.findByProjectId(request.getProjectId())
-                .orElse(ProjectShipmentDocument.builder()
-                        .projectId(request.getProjectId())
-                        .carrierProjectId(request.getCarrierProjectId())
-                        .createdAt(Instant.now())
-                        .shipmentData(new ArrayList<>())
-                        .build());
+	public Map<String, Object> getShipmentList(String projectId, int page, int size) {
 
-        // Always update carrierProjectId from request if provided
-        if (request.getCarrierProjectId() != null && !request.getCarrierProjectId().isBlank()) {
-            agg.setCarrierProjectId(request.getCarrierProjectId());
-        }
+		if (page < 0) {
+			throw new IllegalArgumentException("page must be >= 0");
+		}
+		if (size <= 0) {
+			throw new IllegalArgumentException("size must be > 0");
+		}
 
-        List<ShipmentItemDocument> incoming = request.getShipmentData().stream()
-                .map(ShipmentMapper::toDocument)
-                .toList();
+		List<ShipmentItemDocument> shipmentData = repository.findByProjectId(projectId)
+				.map(ProjectShipmentDocument::getShipmentData).orElse(Collections.emptyList());
 
-        if (request.isAppend()) {
-            List<ShipmentItemDocument> current = agg.getShipmentData() != null ? agg.getShipmentData() : new ArrayList<>();
-            current.addAll(incoming);
-            agg.setShipmentData(current);
-        } else {
-            agg.setShipmentData(incoming);
-        }
+		int totalItems = shipmentData.size();
+		int totalPages = (int) Math.ceil((double) totalItems / size);
 
-        if (agg.getCreatedAt() == null) agg.setCreatedAt(Instant.now());
-        repository.save(agg);
+		int fromIndex = page * size;
 
-        List<ShipmentItemResponseDTO> responseItems = agg.getShipmentData().stream()
-                .map(ShipmentMapper::toResponse)
-                .toList();
+		if (fromIndex >= totalItems) {
+			fromIndex = totalItems;
+		}
 
-        return ShipmentSaveResponseDTO.builder()
-                .shipmentData(responseItems)
-                .build();
-    }
+		int toIndex = Math.min(fromIndex + size, totalItems);
 
-    @Transactional
-    public void deleteByProjectId(String projectId) {
-        Optional<ProjectShipmentDocument> existing = repository.findByProjectId(projectId);
-        if (existing.isEmpty()) {
-            throw new java.util.NoSuchElementException("Shipment data not found for projectId: " + projectId);
-        }
-        repository.deleteByProjectId(projectId);
-    }
+		List<ShipmentItemResponseDTO> pagedShipments = shipmentData.subList(fromIndex, toIndex).stream()
+				.map(ShipmentMapper::toResponse).toList();
 
-    public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId projectId, String shipmentId) {
-        if (projectId == null) {
-            throw new IllegalArgumentException("projectId must not be null");
-        }
-        if (shipmentId == null || shipmentId.isBlank()) {
-            throw new IllegalArgumentException("shipmentId must not be null or blank");
-        }
+		Map<String, Object> response = new HashMap<>();
+		response.put("shipments", pagedShipments);
+		response.put("currentPage", page);
+		response.put("pageSize", size);
+		response.put("totalItems", totalItems);
+		response.put("totalPages", totalPages);
 
-        String projectIdStr = projectId.toHexString();
+		return response;
+	}
 
-        return repository.findByProjectId(projectIdStr)
-                .map(ProjectShipmentDocument::getShipmentData)
-                .filter(Objects::nonNull)
-                .orElseGet(List::of)
-                .stream()
-                .filter(item -> shipmentId.equals(item.getShipmentId()))
-                .collect(Collectors.toList());
-    }
+	@Transactional
+	public ShipmentSaveResponseDTO saveBatch(ShipmentRequestDTO request) {
+
+		ProjectShipmentDocument agg = repository.findByProjectId(request.getProjectId())
+				.orElse(ProjectShipmentDocument.builder().projectId(request.getProjectId())
+						.carrierProjectId(request.getCarrierProjectId()).createdAt(Instant.now())
+						.shipmentData(new ArrayList<>()).build());
+
+		if (request.getCarrierProjectId() != null && !request.getCarrierProjectId().isBlank()) {
+			agg.setCarrierProjectId(request.getCarrierProjectId());
+		}
+
+		List<ShipmentItemDocument> incoming = request.getShipmentData().stream().map(ShipmentMapper::toDocument)
+				.toList();
+
+		if (request.isAppend()) {
+			List<ShipmentItemDocument> current = agg.getShipmentData() != null ? agg.getShipmentData()
+					: new ArrayList<>();
+			current.addAll(incoming);
+			agg.setShipmentData(current);
+		} else {
+			agg.setShipmentData(incoming);
+		}
+
+		if (agg.getCreatedAt() == null) {
+			agg.setCreatedAt(Instant.now());
+		}
+
+		repository.save(agg);
+
+		List<ShipmentItemResponseDTO> responseItems = agg.getShipmentData().stream().map(ShipmentMapper::toResponse)
+				.toList();
+
+		return ShipmentSaveResponseDTO.builder().shipmentData(responseItems).build();
+	}
+
+	@Transactional
+	public void deleteByProjectId(String projectId) {
+		repository.findByProjectId(projectId).orElseThrow(
+				() -> new java.util.NoSuchElementException("Shipment data not found for projectId: " + projectId));
+		repository.deleteByProjectId(projectId);
+	}
+
+	public List<ShipmentItemDocument> getShipmentsByShipmentIdAndProjectId(ObjectId projectId, String shipmentId) {
+
+		String projectIdStr = projectId.toHexString();
+
+		return repository.findByProjectId(projectIdStr).map(ProjectShipmentDocument::getShipmentData)
+				.orElseGet(List::of).stream().filter(item -> shipmentId.equals(item.getShipmentId()))
+				.collect(Collectors.toList());
+	}
+
+	@Transactional
+	public ShipmentSaveResponseDTO updateShipmentItem(String projectId, String shipmentId, String id,
+			ShipmentItemRequestDTO request) {
+
+		ProjectShipmentDocument agg = repository.findByProjectId(projectId).orElseThrow(
+				() -> new java.util.NoSuchElementException("Shipment data not found for projectId: " + projectId));
+
+		boolean updated = false;
+
+		for (ShipmentItemDocument item : agg.getShipmentData()) {
+
+			boolean idMatched = id.equals(item.getIdUpper()) || id.equals(item.getIdLower());
+
+			if (shipmentId.equals(item.getShipmentId()) && idMatched) {
+				ShipmentMapper.updateDocument(item, request);
+				updated = true;
+				break;
+			}
+		}
+
+		if (!updated) {
+			throw new java.util.NoSuchElementException(
+					"Shipment item not found for shipmentId: " + shipmentId + " and id: " + id);
+		}
+
+		repository.save(agg);
+
+		List<ShipmentItemResponseDTO> responseItems = agg.getShipmentData().stream().map(ShipmentMapper::toResponse)
+				.toList();
+
+		return ShipmentSaveResponseDTO.builder().shipmentData(responseItems).build();
+	}
 }

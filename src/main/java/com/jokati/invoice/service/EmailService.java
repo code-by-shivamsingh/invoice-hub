@@ -1,4 +1,3 @@
-
 package com.jokati.invoice.service;
 
 import java.nio.charset.StandardCharsets;
@@ -9,9 +8,11 @@ import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.lang.Nullable;
+import jakarta.annotation.Nullable;
+
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
@@ -50,6 +51,7 @@ public class EmailService {
     }
 
     /** Sends a plain HTML email. */
+    @Async
     public void sendEmail(String to, String subject, String html) {
         validateBasicsOrThrow(to, subject, html);
         try {
@@ -71,6 +73,15 @@ public class EmailService {
             throw emailError("Unexpected error while sending email", "email", buildDetailsWithTrace(to, ex));
         }
     }
+    
+    /**
+     * Backward compatibility wrapper.
+     * Internally delegates to existing template-based methods.
+     */
+    public void send(String templateId, String to, Map<String, Object> model) {
+        sendEmailWithTemplateId(to, templateId, model);
+    }
+
 
     /** Sends an email using a stored template (by Mongo template id). */
     public void sendEmailWithTemplateId(String to, String templateId, @Nullable Map<String, Object> model) {

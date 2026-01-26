@@ -3,7 +3,6 @@ import java.math.BigDecimal;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,7 +12,7 @@ import lombok.Setter;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Tolerance {
-	@NotBlank(message = "Designation is required")
+	
     private String designation;
 
     @DecimalMin(value = "0.0", message = "Tolerance must be >= 0")
