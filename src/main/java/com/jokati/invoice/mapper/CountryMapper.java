@@ -18,6 +18,12 @@ public class CountryMapper {
         dto.setId(country.getId());
         dto.setCode(country.getCode());
         dto.setName(country.getName());
+
+        // Flag URL generate
+        dto.setFlagUrl("https://flagcdn.com/w320/" 
+                + country.getCode().toLowerCase() + ".png");
+
         return dto;
     }
+
 }

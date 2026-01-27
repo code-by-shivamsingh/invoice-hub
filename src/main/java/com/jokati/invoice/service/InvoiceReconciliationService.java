@@ -91,8 +91,8 @@ public class InvoiceReconciliationService {
                 ? scale2(invoice.getTotals().getGrossAmount())
                 : BigDecimal.ZERO;
 
-        BigDecimal invoiceDifference = scale2(invoiceOrderTotal.subtract(invoiceGrossTotal));
-        BigDecimal percentDifference = percent(invoiceDifference, invoiceGrossTotal);
+        BigDecimal invoiceDifference = scale2(invoiceGrossTotal.subtract(invoiceOrderTotal));
+        BigDecimal percentDifference = percent(invoiceDifference, invoiceOrderTotal);
 
         // Get tolerance
         ToleranceLimitsResponseDTO tol = toleranceService.getByCompanyId(companyId);
