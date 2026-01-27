@@ -10,6 +10,7 @@ public class CountryMapper {
         return Country.builder()
                 .code(dto.getCode())
                 .name(dto.getName())
+                .locale(dto.getLocale())
                 .build();
     }
 
@@ -18,6 +19,7 @@ public class CountryMapper {
         dto.setId(country.getId());
         dto.setCode(country.getCode());
         dto.setName(country.getName());
+        dto.setGetlocale(country.getLocale()); 
 
         // Flag URL generate
         dto.setFlagUrl("https://flagcdn.com/w320/" 
