@@ -70,9 +70,9 @@ public class InvoiceService {
                 .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
                         ", invoiceNumber=" + invoiceNumber));
      // Reconciliation pipeline
-        Invoice reconciled = invoiceReconciliation.reconcileAndPersist(entity);
+     //   Invoice reconciled = invoiceReconciliation.reconcileAndPersist(entity);
 
-        return mapper.toResponse(reconciled);
+        return mapper.toResponse(entity);
     }
 
     /** Filtered list for UI (Carrier, Invoice Number, From/To dates) */
