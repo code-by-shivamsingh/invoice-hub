@@ -34,7 +34,9 @@ public class InvoiceResponseDTO {
     @JsonProperty("invoice_total")    private BigDecimal invoiceTotal;
     @JsonProperty("difference")       private BigDecimal difference;
     @JsonProperty("status")           private StatusInfo status;
-
+    @JsonProperty("email_status")     private Boolean emailStatus;
+    
+    
     private Instant createdAt;
     private Instant updatedAt;
 }

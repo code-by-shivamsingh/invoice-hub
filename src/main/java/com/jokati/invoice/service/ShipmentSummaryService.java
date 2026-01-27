@@ -177,39 +177,39 @@ public class ShipmentSummaryService {
 
             var project = projectOpt.get();
 
-            
-            List<ShipmentItemDocument> filteredRows =
+          
+            List<ShipmentItemDocument> rawRows =
                     Optional.ofNullable(project.getShipmentData())
-                            .orElseGet(ArrayList::new)
-                            .stream()
-                            .filter(item ->
-                                    item.getMessage() != null &&
-                                    !item.getMessage().trim().isEmpty()
-                            )
-                            .collect(Collectors.toList());
+                            .orElseGet(ArrayList::new);
 
-            
+           
             Map<String, Object> freightBasis        = fetchFreightBasis(projectId);
             Map<String, Object> rates               = fetchRates(projectId);
             Map<String, Object> extraCosts          = fetchExtraCosts(projectId);
             Map<String, Object> dieselFloaterMatrix = fetchDieselFloaterMatrix();
 
-            List<ShipmentItemDocument> calculatedRows = filteredRows.stream()
+           
+            List<ShipmentItemDocument> calculatedRows = rawRows.stream()
                     .map(r -> calculateRow(r, freightBasis, rates, extraCosts, dieselFloaterMatrix))
                     .collect(Collectors.toList());
 
+          
+            List<ShipmentItemDocument> filteredRows = calculatedRows.stream()
+                    .filter(item -> item.getMessage() != null && !item.getMessage().trim().isEmpty())
+                    .collect(Collectors.toList());
+
+            
             Map<String, List<ShipmentItemDocument>> preparedByCountry =
-                    calculatedRows.stream()
+                    filteredRows.stream()
                             .collect(Collectors.groupingBy(
                                     row -> Optional.ofNullable(row.getCountry()).orElse("INT"),
                                     LinkedHashMap::new,
                                     Collectors.toList()
                             ));
 
+           
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
-                    createSortedConsolidatedShipmentData(
-                            preparedByCountry, extraCosts, dieselFloaterMatrix
-                    );
+                    createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
 
             Map<String, RowSummedTotal> countriesTotals =
                     createCountryRowTotal(consolidatedByCountry, extraCosts);
@@ -218,9 +218,7 @@ public class ShipmentSummaryService {
 
             SummaryInitResult dto = new SummaryInitResult();
             dto.setConsolidatedShipmentData(consolidatedByCountry);
-            dto.setShipmentTotalSummary(
-                    new ShipmentTotalSummary(countriesTotals, overallTotalPrice)
-            );
+            dto.setShipmentTotalSummary(new ShipmentTotalSummary(countriesTotals, overallTotalPrice));
             dto.setFetchedShipperExtraCosts(extraCosts);
             dto.setDieselFloaterMatrix(dieselFloaterMatrix);
 
@@ -230,7 +228,8 @@ public class ShipmentSummaryService {
             log.error("getSummaryInitWithMessage: error", ex);
             return null;
         }
-    } 
+    }
+
 
 
 
@@ -852,8 +851,11 @@ public class ShipmentSummaryService {
             row.setExtraCostsTotalPrice(totalExtraCosts);
             row.setTotalPrice(totalRowPrice);
 
-            row.setErrorType(0);
-            row.setMessage("");
+         // DO NOT RESET MESSAGE IF ERROR EXISTS
+            if (row.getErrorType() == null || row.getErrorType() == 0) {
+                row.setMessage("");
+            }
+
 
             log.debug("calculateRow: sid={} country={} net={} toll={} diesel={} extras={} total={}",
                     safeString(row.getShipmentId()), country, row.getPrice(), row.getToll(), row.getDiesel(),
