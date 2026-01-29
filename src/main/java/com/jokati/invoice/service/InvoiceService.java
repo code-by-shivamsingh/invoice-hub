@@ -1,14 +1,19 @@
 
 package com.jokati.invoice.service;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -117,55 +122,59 @@ public class InvoiceService {
             int page,
             int size) {
 
-if (size > 100) size = 100; 
+        if (size > 100) size = 100;
 
-Query q = new Query();
-q.addCriteria(Criteria.where("companyId").is(companyId));
+        Query q = new Query();
+        q.addCriteria(Criteria.where("companyId").is(companyId));
 
-if (carrier != null && !carrier.isBlank() && !"All".equalsIgnoreCase(carrier)) {
-q.addCriteria(Criteria.where("seller.companyName").is(carrier));
-}
+      
+        if (carrier != null && !carrier.isBlank()) {
+            q.addCriteria(Criteria.where("carrier").is(carrier));
+        }
 
-if (invoiceNumber != null && !invoiceNumber.isBlank()) {
-q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
-}
+       
+        if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+            q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
+        }
 
-LocalDate from = parseDateFlexible(fromDate);
-LocalDate to   = parseDateFlexible(toDate);
+        // Date filter (Mongo ISODate FIX)
+        if (fromDate != null && toDate != null) {
 
-if (from != null && to != null) {
-q.addCriteria(Criteria.where("invoiceDate").gte(from).lte(to));
-} 
-else if (from != null) {
-q.addCriteria(Criteria.where("invoiceDate").gte(from));
-} 
-else if (to != null) {
-q.addCriteria(Criteria.where("invoiceDate").lte(to));
-}
+            Instant fromInstant = LocalDate.parse(fromDate)
+                    .atStartOfDay(ZoneOffset.UTC)
+                    .toInstant();
 
-// SORT
-q.with(org.springframework.data.domain.Sort.by(
-org.springframework.data.domain.Sort.Direction.DESC, "invoiceDate"));
+            Instant toInstant = LocalDate.parse(toDate)
+                    .atTime(23, 59, 59)
+                    .toInstant(ZoneOffset.UTC);
 
-// PAGINATION
-q.skip((long) page * size);
-q.limit(size);
+            q.addCriteria(Criteria.where("invoiceDate").gte(fromInstant).lte(toInstant));
+        }
 
-List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
-long total = mongoTemplate.count(Query.of(q).skip(0).limit(0), Invoice.class);
+        // Sort
+        q.with(Sort.by(Sort.Direction.DESC, "invoiceDate"));
 
-List<InvoiceListItemDTO> dtoList = invoices.stream().map(mapper::toListItem).toList();
+        // Pagination
+        q.skip((long) page * size);
+        q.limit(size);
 
-return InvoicePageResponseDTO.builder()
-.data(dtoList)
-.page(page)
-.size(size)
-.totalElements(total)
-.totalPages((int) Math.ceil((double) total / size))
-.build();
-}
+        List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
+
+        long total = mongoTemplate.count(q.skip(0).limit(0), Invoice.class);
+
+        List<InvoiceListItemDTO> dtoList = invoices.stream().map(mapper::toListItem).toList();
+
+        return InvoicePageResponseDTO.builder()
+                .data(dtoList)
+                .page(page)
+                .size(size)
+                .totalElements(total)
+                .totalPages((int) Math.ceil((double) total / size))
+                .build();
+    }
 
 
+    
     @Transactional
     public void delete(String companyId, String invoiceNumber) {
         Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)

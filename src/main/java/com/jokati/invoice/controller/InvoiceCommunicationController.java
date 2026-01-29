@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 @Tag(name = "Invoice Carrier Communication")
 @RestController
-@RequestMapping("/api/invoice-communications")
+@RequestMapping("/api/invoice-communications")  
 @RequiredArgsConstructor
 public class InvoiceCommunicationController {
 
@@ -27,11 +27,11 @@ public class InvoiceCommunicationController {
 
     private final InvoiceCommunicationService service;
 
- 
+   
     @Operation(summary = "Send invoice to carrier and create communication")
     @PostMapping
     public ResponseEntity<ApiResponse<Object>> create(
-            @PathVariable String companyId,
+            @RequestParam String companyId,   
             @RequestBody CreateInvoiceCommunicationDTO request) {
 
         log.info("InvoiceCommunication create: companyId={}, invoiceId={}",
@@ -41,11 +41,11 @@ public class InvoiceCommunicationController {
         return ResponseUtil.okObject(response, "Invoice sent to carrier successfully");
     }
 
-  
+    
     @Operation(summary = "Get invoice-carrier communication by invoiceId")
     @GetMapping("/{invoiceId}")
     public ResponseEntity<ApiResponse<Object>> getByInvoiceId(
-            @PathVariable String companyId,
+            @RequestParam String companyId,   
             @PathVariable String invoiceId) {
 
         log.info("InvoiceCommunication get: companyId={}, invoiceId={}",
@@ -57,11 +57,11 @@ public class InvoiceCommunicationController {
         return ResponseUtil.okObject(response, "Invoice communication fetched successfully");
     }
 
-   
+    
     @Operation(summary = "Carrier manual response (MANUALLY_ACCEPTED / MANUALLY_REJECTED)")
     @PostMapping("/{invoiceId}/carrier-response")
     public ResponseEntity<ApiResponse<Object>> carrierResponse(
-            @PathVariable String companyId,
+            @RequestParam String companyId, 
             @PathVariable String invoiceId,
             @RequestBody CarrierResponseDTO request) {
 
