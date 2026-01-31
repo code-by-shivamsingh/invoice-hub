@@ -48,21 +48,21 @@
 			<artifactId>spring-boot-starter-data-mongodb-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		
+
 		<!-- https://mvnrepository.com/artifact/org.mapstruct/mapstruct -->
 		<dependency>
 		    <groupId>org.mapstruct</groupId>
 		    <artifactId>mapstruct</artifactId>
 		    <version>1.6.3</version>
 		</dependency>
-		  <!-- https://mvnrepository.com/artifact/org.mapstruct/mapstruct-processor -->
+		<!-- https://mvnrepository.com/artifact/org.mapstruct/mapstruct-processor 
 		<dependency>
 		    <groupId>org.mapstruct</groupId>
 		    <artifactId>mapstruct-processor</artifactId>
 		    <version>1.6.3</version>
 		</dependency>
 
-		
+		-->
 		<dependency>
 		    <groupId>com.sun.mail</groupId>
 		    <artifactId>jakarta.mail</artifactId>
@@ -104,31 +104,29 @@
 	<build>
 		<plugins>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<annotationProcessorPaths>
-					
-						<path>
-							<groupId>org.mapstruct</groupId>
-						    <artifactId>mapstruct-processor</artifactId>
-						    <version>1.6.3</version>
-						</path>
-						
-						<path>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-							<version>1.18.42</version>
-						</path>
-						
-						<path>
-					       <groupId>org.projectlombok</groupId>
-					            <artifactId>lombok-mapstruct-binding</artifactId>
-					            <version>0.2.0</version>
-					        </path>
-
-					</annotationProcessorPaths>
-				</configuration>
+			  <groupId>org.apache.maven.plugins</groupId>
+			  <artifactId>maven-compiler-plugin</artifactId>
+			  <version>3.11.0</version>
+			  <configuration>
+			    <release>21</release>
+			    <annotationProcessorPaths>
+			      <path>
+			        <groupId>org.mapstruct</groupId>
+			        <artifactId>mapstruct-processor</artifactId>
+			        <version>1.6.3</version>
+			      </path>
+			      <path>
+			        <groupId>org.projectlombok</groupId>
+			        <artifactId>lombok</artifactId>
+			        <version>1.18.42</version>
+			      </path>
+			      <path>
+			        <groupId>org.projectlombok</groupId>
+			        <artifactId>lombok-mapstruct-binding</artifactId>
+			        <version>0.2.0</version>
+			      </path>
+			    </annotationProcessorPaths>
+			  </configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

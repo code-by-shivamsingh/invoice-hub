@@ -116,7 +116,7 @@ public class InvoiceReconciliationService {
                     "invoiceNumber", safe(invoice.getInvoiceNumber())
             ));
         } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
-                && percentDifference.compareTo(allowedPercent) <= 0) {
+                && percentDifference.compareTo(allowedPercent) <= 0) {   //this logic needs to be changed
             invoiceStatus = StatusInfo.builder()
             		.label(TOLERANCE_ACCEPTED)
                     .color(COLOR_WARNING)
