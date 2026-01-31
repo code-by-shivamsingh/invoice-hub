@@ -4,6 +4,7 @@ package com.jokati.invoice.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import org.bson.types.ObjectId;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.jokati.invoice.dto.ToleranceLimitsResponseDTO;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
+import com.jokati.invoice.model.ShipmentItemDocument;
 import com.jokati.invoice.model.ShipmentSummary;
 import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.repository.InvoiceRepository;
@@ -115,8 +117,8 @@ public class InvoiceReconciliationService {
                     "projectId", projectIdHex,
                     "invoiceNumber", safe(invoice.getInvoiceNumber())
             ));
-        } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
-                && percentDifference.compareTo(allowedPercent) <= 0) {   //this logic needs to be changed
+        } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0 && percentDifference.compareTo(BigDecimal.ZERO) != 0
+                && percentDifference.compareTo(allowedPercent) <= 0) {   
             invoiceStatus = StatusInfo.builder()
             		.label(TOLERANCE_ACCEPTED)
                     .color(COLOR_WARNING)
@@ -148,53 +150,124 @@ public class InvoiceReconciliationService {
     }
 
     /** Enrich shipment totals from summary; sets orderTotal, difference, status. */
-    private void enrichShipmentUsingSummary(Shipment shipment, ObjectId projectId) {
-        final String shipmentId = safe(shipment.getShipmentId());
-        if (shipmentId.isBlank()) {
-            log.warn("Skipping enrichment: shipmentId is blank");
-            setDefaultsForShipment(shipment);
-            return;
-        }
-        
-        SummaryInitResult summary = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
+//    private void enrichShipmentUsingSummary(Shipment shipment, ObjectId projectId) {
+//        final String shipmentId = safe(shipment.getShipmentId());
+//        if (shipmentId.isBlank()) {
+//            log.warn("Skipping enrichment: shipmentId is blank");
+//            setDefaultsForShipment(shipment);
+//            return;
+//        }
+//        
+//        SummaryInitResult summary = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
+//
+//        BigDecimal orderTotal      = BigDecimal.ZERO; // Σ totalPrice per-country
+//        BigDecimal extraCostsTotal = BigDecimal.ZERO; // Σ totalExtraCostsPrice per-country
+//
+//        if (summary != null && summary.getShipmentTotalSummary() != null) {
+//            ShipmentTotalSummary totals = summary.getShipmentTotalSummary();
+//            Map<String, RowSummedTotal> byCountry = totals.getCountriesRowTotal();
+//
+//            if (byCountry != null) {
+//                for (RowSummedTotal rt : byCountry.values()) {
+//                    if (rt != null) {
+//                        // FIX #1: do not compare primitive double to null; just sum
+//                        orderTotal      = orderTotal.add(BigDecimal.valueOf(rt.getTotalPrice()));
+//                        // FIX #2: totalExtraCostsPrice is primitive; never null; sum directly
+//                        extraCostsTotal = extraCostsTotal.add(BigDecimal.valueOf(rt.getTotalExtraCostsPrice()));
+//                    }
+//                }
+//            }
+//        } else {
+//            log.warn("No summary for shipmentId={}, set orderTotal=0", shipmentId);
+//        }
+//        
+//        if (summary != null && summary.getConsolidatedShipmentData() != null) {
+//        		
+//        }
+//
+//        orderTotal = scale2(orderTotal);
+//        BigDecimal netAmount  = shipment.getTotalPrice() != null ? scale2(shipment.getTotalPrice()) : BigDecimal.ZERO;
+//        BigDecimal difference = scale2(orderTotal.subtract(netAmount));
+//
+//        shipment.setOrderTotal(orderTotal);
+//        shipment.setDifference(difference); 
+//        shipment.setStatus(
+//        	    difference.compareTo(BigDecimal.ZERO) == 0
+//        	        ? StatusInfo.builder().label(CORRECT_BILLING).color(COLOR_SUCCESS).build()
+//        	        : StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build()
+//        	);
+//
+//
+//        // (Optional) if your Shipment model has a surcharge field, set it here:
+//         shipment.setSurchargeTotal(scale2(extraCostsTotal));
+//    }
+    
 
-        BigDecimal orderTotal      = BigDecimal.ZERO; // Σ totalPrice per-country
-        BigDecimal extraCostsTotal = BigDecimal.ZERO; // Σ totalExtraCostsPrice per-country
-
-        if (summary != null && summary.getShipmentTotalSummary() != null) {
-            ShipmentTotalSummary totals = summary.getShipmentTotalSummary();
-            Map<String, RowSummedTotal> byCountry = totals.getCountriesRowTotal();
-
-            if (byCountry != null) {
-                for (RowSummedTotal rt : byCountry.values()) {
-                    if (rt != null) {
-                        // FIX #1: do not compare primitive double to null; just sum
-                        orderTotal      = orderTotal.add(BigDecimal.valueOf(rt.getTotalPrice()));
-                        // FIX #2: totalExtraCostsPrice is primitive; never null; sum directly
-                        extraCostsTotal = extraCostsTotal.add(BigDecimal.valueOf(rt.getTotalExtraCostsPrice()));
-                    }
-                }
-            }
-        } else {
-            log.warn("No summary for shipmentId={}, set orderTotal=0", shipmentId);
-        }
-
-        orderTotal = scale2(orderTotal);
-        BigDecimal netAmount  = shipment.getTotalPrice() != null ? scale2(shipment.getTotalPrice()) : BigDecimal.ZERO;
-        BigDecimal difference = scale2(orderTotal.subtract(netAmount));
-
-        shipment.setOrderTotal(orderTotal);
-        shipment.setDifference(difference); 
-        shipment.setStatus(
-        	    difference.compareTo(BigDecimal.ZERO) == 0
-        	        ? StatusInfo.builder().label(CORRECT_BILLING).color(COLOR_SUCCESS).build()
-        	        : StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build()
-        	);
 
 
-        // (Optional) if your Shipment model has a surcharge field, set it here:
-        // shipment.setSurchargeTotal(scale2(extraCostsTotal));
+
+private void enrichShipmentUsingSummary(Shipment shipment, ObjectId projectId) {
+    final String shipmentId = safe(shipment.getShipmentId());
+    if (shipmentId.isBlank()) {
+        log.warn("Skipping enrichment: shipmentId is blank");
+        setDefaultsForShipment(shipment);
+        return;
     }
+
+    SummaryInitResult summary = shipmentSummaryService.getSummaryByShipmentId(projectId, shipmentId);
+
+    BigDecimal orderTotal      = BigDecimal.ZERO; // Σ totalPrice for this shipmentId (across duplicates/countries)
+    BigDecimal extraCostsTotal = BigDecimal.ZERO; // Σ extraCostsTotalPrice for this shipmentId
+
+    if (summary != null && summary.getConsolidatedShipmentData() != null) {
+
+        // Your actual type:
+        // Map<String, List<ShipmentItemDocument>> consolidatedShipmentData
+        Map<String, List<ShipmentItemDocument>> byCountry = summary.getConsolidatedShipmentData();
+
+        for (List<ShipmentItemDocument> rows : byCountry.values()) {
+            if (rows == null || rows.isEmpty()) continue;
+
+            for (ShipmentItemDocument row : rows) {
+                if (row == null) continue;
+
+                // Match only the current shipmentId
+                String rowShipmentId = safe(row.getShipmentId());
+                if (!shipmentId.equalsIgnoreCase(rowShipmentId)) continue;
+
+                // NOTE: row.getTotalPrice() and row.getExtraCostsTotalPrice() are Double
+                orderTotal      = orderTotal.add(nz(row.getTotalPrice()));
+                extraCostsTotal = extraCostsTotal.add(nz(row.getExtraCostsTotalPrice()));
+            }
+        }
+    } else {
+        log.warn("No consolidatedShipmentData for shipmentId={}, set totals=0", shipmentId);
+    }
+
+    orderTotal      = scale2(orderTotal);
+    extraCostsTotal = scale2(extraCostsTotal);
+
+    // shipment.getTotalPrice() is likely BigDecimal in your Shipment model (invoice/net)
+    BigDecimal netAmount  = shipment.getTotalPrice() != null ? scale2(shipment.getTotalPrice()) : BigDecimal.ZERO;
+    BigDecimal difference = scale2(netAmount.subtract(orderTotal));
+
+    shipment.setOrderTotal(orderTotal);
+    shipment.setDifference(difference);
+
+    shipment.setStatus(
+        difference.compareTo(BigDecimal.ZERO) == 0
+            ? StatusInfo.builder().label(CORRECT_BILLING).color(COLOR_SUCCESS).build()
+            : StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build()
+    );
+
+    // surcharge = Σ(extraCostsTotalPrice) as per your requirement
+    shipment.setOrderSurchargeTotal(extraCostsTotal);
+}
+
+
+
+
+
 
     private void setDefaultsForShipment(Shipment s) {
         s.setOrderTotal(BigDecimal.ZERO);
@@ -230,6 +303,18 @@ public class InvoiceReconciliationService {
     private String safe(String s) {
         return s == null ? "" : s.trim();
     }
+    
+
+
+	private BigDecimal nz(Double v) {
+		return v == null ? BigDecimal.ZERO : BigDecimal.valueOf(v);
+	}
+
+	/** For BigDecimal fields (like Shipment.totalPrice). */
+	private BigDecimal nz(BigDecimal v) {
+		return v == null ? BigDecimal.ZERO : v;
+	}
+
 
     /** Strict ObjectId parser: invalid hex -> BAD_REQUEST via IllegalArgumentException. */
     private ObjectId toObjectIdStrict(String hex) {

@@ -72,6 +72,10 @@ public class Shipment {
 	@Valid
 	@NotNull
 	private Charges charges;
+	
+	
+	private BigDecimal orderSurchargeTotal;
+
 
 	@NotNull
 	@DecimalMin("0.0")
