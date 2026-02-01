@@ -32,7 +32,7 @@ public class InvoiceCarrierCommunication {
         private String message;
     }
 
-    // Inner enum
+    
     public static enum CommunicationStatus {
         SENT
     }
