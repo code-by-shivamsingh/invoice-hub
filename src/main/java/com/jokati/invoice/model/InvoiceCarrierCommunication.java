@@ -1,11 +1,9 @@
 package com.jokati.invoice.model;
 
 import java.time.Instant;
-
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-
 import lombok.Data;
 
 @Data
@@ -15,20 +13,15 @@ public class InvoiceCarrierCommunication {
     @Id
     private String id;
 
-   
     @Indexed(unique = true)
     private String invoiceId;
-
+    private String shipperId;
+    private String carrierId;
     private String carrierEmail;
 
-    // Request info (send time)
     private RequestInfo request;
 
-    // Carrier response info 
-    private ResponseInfo response;
-
-    // SENT / MANUALLY_ACCEPTED / MANUALLY_REJECTED
-    private String currentStatus;
+    private CommunicationStatus currentStatus; 
 
     private Instant createdAt;
     private Instant updatedAt;
@@ -39,10 +32,8 @@ public class InvoiceCarrierCommunication {
         private String message;
     }
 
-    @Data
-    public static class ResponseInfo {
-        private String status;        // MANUALLY_ACCEPTED / MANUALLY_REJECTED
-        private String comment;
-        private Instant respondedAt;
+    
+    public static enum CommunicationStatus {
+        SENT
     }
 }

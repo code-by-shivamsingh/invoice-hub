@@ -1,12 +1,10 @@
 package com.jokati.invoice.dto;
 
+import com.jokati.invoice.model.InvoiceCarrierCommunication.CommunicationStatus;
 import lombok.Data;
 
 @Data
 public class CarrierResponseDTO {
-
-    
-    private String status;
-
+    private CommunicationStatus status; 
     private String comment;
 }
