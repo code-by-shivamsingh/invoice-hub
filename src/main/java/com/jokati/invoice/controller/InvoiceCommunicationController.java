@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 @Tag(name = "Invoice Carrier Communication")
 @RestController
-@RequestMapping("/api/invoice-communications")
+@RequestMapping("/api/v1/invoice-communications")
 @RequiredArgsConstructor
 public class InvoiceCommunicationController {
 
