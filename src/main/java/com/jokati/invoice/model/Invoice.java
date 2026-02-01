@@ -65,8 +65,11 @@ public class Invoice {
     private BigDecimal orderTotal;
 
     private BigDecimal invoiceDifference;
-    /** NEW: billing status info (label + color) */
-    private StatusInfo status;
+    /** SYSTEM status (auto calculated) */
+    private StatusInfo systemStatus;
+
+    /** FINAL status (manual override) */
+    private StatusInfo finalStatus;
 
     private Boolean emailStatus;
 
