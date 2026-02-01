@@ -18,6 +18,7 @@ import com.jokati.invoice.dto.TotalsDTO;
 import com.jokati.invoice.model.Charges;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
+import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.model.Totals;
 
 @Mapper(componentModel = "spring")
@@ -27,6 +28,22 @@ public interface InvoiceMapper {
     default LocalDate toLocalDate(String isoDate) { return isoDate == null ? null : LocalDate.parse(isoDate); }
     default String toIsoDate(LocalDate date) { return date == null ? null : date.toString(); }
     default String unescapeHtml(String s) { return s == null ? null : HtmlUtils.htmlUnescape(s); }
+    default StatusInfo prettyStatusInfo(StatusInfo status) {if (status == null) return null;
+
+        String[] parts = status.getLabel().toLowerCase().split("_");
+        StringBuilder sb = new StringBuilder();
+
+        for (String p : parts) {sb.append(Character.toUpperCase(p.charAt(0)))
+              .append(p.substring(1))
+              .append(" ");
+        }
+
+        return StatusInfo.builder()
+                .label(sb.toString().trim())   // Manually Accepted
+                .color(status.getColor())
+                .build();
+    }
+
 
     // --- Totals ---
     Totals toTotals(TotalsDTO dto);
@@ -65,7 +82,8 @@ public interface InvoiceMapper {
         @Mapping(target = "shipments",         source = "shipments"),
         @Mapping(target = "orderTotal",        source = "orderTotal"),
         @Mapping(target = "emailStatus",       source = "emailStatus"),
-        @Mapping(target = "status",            ignore = true),
+        @Mapping(target = "systemStatus",      ignore = true),
+        @Mapping(target = "finalStatus",       ignore = true),
         @Mapping(target = "invoiceDifference", ignore = true),
         // These targets do not exist on the model now intentionally: seller, billTo, shipmentSummary, dueDate
         // If you reintroduce them, map explicitly or ignore as needed.
@@ -85,7 +103,7 @@ public interface InvoiceMapper {
         @Mapping(target = "carrier",          source = "carrier"),
         @Mapping(target = "invoiceTotal",     expression = "java(entity.getTotals() != null ? entity.getTotals().getGrossAmount() : null)"),
         @Mapping(target = "difference",       source = "invoiceDifference"),
-        @Mapping(target = "status",           source = "status"),
+        @Mapping(target = "status",           expression = "java(" +"entity.getFinalStatus() != null " +"? prettyStatusInfo(entity.getFinalStatus()) " +": prettyStatusInfo(entity.getSystemStatus())" +")"),
         @Mapping(target = "emailStatus",      source = "emailStatus"),
         @Mapping(target = "createdAt",        source = "createdAt"),
         @Mapping(target = "updatedAt",        source = "updatedAt")
@@ -100,7 +118,7 @@ public interface InvoiceMapper {
         @Mapping(target = "orderTotal",    source = "orderTotal"),
         @Mapping(target = "invoiceTotal",  expression = "java(entity.getTotals() != null ? entity.getTotals().getGrossAmount() : null)"),
         @Mapping(target = "difference",    source = "invoiceDifference"),
-        @Mapping(target = "status",        source = "status"),
+        @Mapping(target = "status",        expression = "java(" + "entity.getFinalStatus() != null " +"? prettyStatusInfo(entity.getFinalStatus()) " +": prettyStatusInfo(entity.getSystemStatus())" +")"),
         @Mapping(target = "emailStatus",   source = "emailStatus"),
         @Mapping(target = "shipments",     ignore = true)  
     })
