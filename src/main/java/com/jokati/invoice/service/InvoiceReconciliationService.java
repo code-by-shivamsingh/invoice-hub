@@ -36,6 +36,8 @@ public class InvoiceReconciliationService {
     private final ShipmentSummaryService shipmentSummaryService;
     private final ToleranceLimitsService toleranceService;
     private final EmailService emailService;
+    private final InvoiceStatusHistoryService statusHistoryService;
+
 
     /** Externalized (can be moved to @ConfigurationProperties). */
     @Value("${notification.templates.accepted:template_accepted}")
@@ -116,7 +118,7 @@ public class InvoiceReconciliationService {
                     "invoiceNumber", safe(invoice.getInvoiceNumber())
             ));
         } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
-                && percentDifference.compareTo(allowedPercent) <= 0) {
+                && percentDifference.compareTo(allowedPercent) <= 0) {   //this logic needs to be changed
             invoiceStatus = StatusInfo.builder()
             		.label(TOLERANCE_ACCEPTED)
                     .color(COLOR_WARNING)
@@ -134,15 +136,22 @@ public class InvoiceReconciliationService {
                     .color(COLOR_ERROR)
                     .build();
         }
+        
+        invoice.setSystemStatus(invoiceStatus);
+
+        statusHistoryService.saveSystem(
+            invoice.getId(),
+            invoiceStatus.getLabel()
+        );
 
         // Persist enriched invoice fields
         invoice.setOrderTotal(invoiceOrderTotal);
         invoice.setInvoiceDifference(invoiceDifference);
-        invoice.setStatus(invoiceStatus);
+        invoice.setSystemStatus(invoiceStatus);
         invoice.setEmailStatus(emailSent);
 
         Invoice saved = invoiceRepository.save(invoice);
-        log.info("Invoice saved: id={}, status={}, emailSent={}, date={}", saved.getId(), saved.getStatus(),
+        log.info("Invoice saved: id={}, status={}, emailSent={}, date={}", saved.getId(), saved.getSystemStatus(),
                 saved.getEmailStatus(), LocalDate.now());
         return saved;
     }

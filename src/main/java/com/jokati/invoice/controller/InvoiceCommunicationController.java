@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.CarrierResponseDTO;
 import com.jokati.invoice.dto.CreateInvoiceCommunicationDTO;
 import com.jokati.invoice.model.InvoiceCarrierCommunication;
 import com.jokati.invoice.service.InvoiceCommunicationService;
@@ -18,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @Tag(name = "Invoice Carrier Communication")
 @RestController
-@RequestMapping("/api/v1/invoice-communications")
+@RequestMapping("/api/invoice-communications")
 @RequiredArgsConstructor
 public class InvoiceCommunicationController {
 
@@ -30,9 +31,11 @@ public class InvoiceCommunicationController {
     @Operation(summary = "Send invoice to carrier and create communication")
     @PostMapping
     public ResponseEntity<ApiResponse<Object>> create(
+            @RequestParam String companyId,
             @Valid @RequestBody CreateInvoiceCommunicationDTO request) {
 
-        log.info("InvoiceCommunication create: invoiceId={}", request.getInvoiceId());
+        log.info("InvoiceCommunication create: companyId={}, invoiceId={}",
+                companyId, request.getInvoiceId());
 
         InvoiceCarrierCommunication response = service.create(request);
         return ResponseUtil.okObject(response, "Invoice sent to carrier successfully");
@@ -41,11 +44,15 @@ public class InvoiceCommunicationController {
     @Operation(summary = "Get invoice-carrier communication by invoiceId")
     @GetMapping("/{invoiceId}")
     public ResponseEntity<ApiResponse<Object>> getByInvoiceId(
+            @RequestParam String companyId,
             @PathVariable String invoiceId) {
 
-        log.info("InvoiceCommunication get: invoiceId={}", invoiceId);
+        log.info("InvoiceCommunication get: companyId={}, invoiceId={}",
+                companyId, invoiceId);
 
         InvoiceCarrierCommunication response = service.getByInvoiceId(invoiceId);
         return ResponseUtil.okObject(response, "Invoice communication fetched successfully");
     }
+
+   
 }

@@ -177,7 +177,7 @@ public class ShipmentSummaryService {
 
             var project = projectOpt.get();
 
-           
+
             List<ShipmentItemDocument> rawRows =
                     Optional.ofNullable(project.getShipmentData())
                             .orElseGet(ArrayList::new);
@@ -193,7 +193,7 @@ public class ShipmentSummaryService {
                     .map(r -> calculateRow(r, freightBasis, rates, extraCosts, dieselFloaterMatrix))
                     .collect(Collectors.toList());
 
-           
+
             List<ShipmentItemDocument> filteredRows = calculatedRows.stream()
                     .filter(item -> item.getMessage() != null && !item.getMessage().trim().isEmpty())
                     .collect(Collectors.toList());
@@ -207,7 +207,7 @@ public class ShipmentSummaryService {
                                     Collectors.toList()
                             ));
 
-            
+
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
                     createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
 
@@ -229,6 +229,7 @@ public class ShipmentSummaryService {
             return null;
         }
     }
+
 
 
 
@@ -851,7 +852,7 @@ public class ShipmentSummaryService {
             row.setTotalPrice(totalRowPrice);
 
          // DO NOT RESET MESSAGE IF ERROR EXISTS
-            
+
             if (row.getErrorType() == null || row.getErrorType() == 0) {
                 row.setMessage("");
             }
