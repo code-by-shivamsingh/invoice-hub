@@ -73,31 +73,45 @@ public class ShipperFreightCalculationBasisService {
     
     public List<String> getCountriesByProjectId(String projectId) {
 
-        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
-            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+        Optional<ShipperFreightCalculationBasis> optionalBasis =
+                repository.findByProjectId(projectId);
 
-        return new ArrayList<>(basis.getCountries().keySet()); 
+       
+        if (optionalBasis.isEmpty()) {
+            return List.of("DE");
+        }
+
+        ShipperFreightCalculationBasis basis = optionalBasis.get();
+
+        
+        if (basis.getCountries() == null || basis.getCountries().isEmpty()) {
+            return List.of("DE");
+        }
+
+        return new ArrayList<>(basis.getCountries().keySet());
     }
-    
+
     
     public Object getBasisByCountry(String projectId, String countryCode) {
 
-        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
-            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+        Optional<ShipperFreightCalculationBasis> optionalBasis =
+                repository.findByProjectId(projectId);
 
-        Map<String, Object> countriesMap = basis.getCountries();
-
-        // If countryCode not provided → take first country
-        if (countryCode == null || countryCode.isEmpty()) {
-            countryCode = countriesMap.keySet().stream()
-                    .findFirst()
-                    .orElseThrow(() -> new NoSuchElementException("No countries configured"));
+      
+        if (optionalBasis.isEmpty()) {
+            return null; 
         }
-
+        ShipperFreightCalculationBasis basis = optionalBasis.get();
+        Map<String, Object> countriesMap = basis.getCountries();
+        if (countriesMap == null || countriesMap.isEmpty()) {
+            return null; 
+        }
+        if (countryCode == null || countryCode.isBlank()) {
+            countryCode = countriesMap.keySet().iterator().next();
+        }
         Object data = countriesMap.get(countryCode);
-
         if (data == null) {
-            throw new NoSuchElementException("Basis not configured for country: " + countryCode);
+            return null; 
         }
 
         return data;
