@@ -1,6 +1,9 @@
 
 package com.jokati.invoice.controller;
 
+import java.util.List;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +43,17 @@ public class ShipperFreightCalculationBasisController {
 	@Operation(summary = "Get freight calculation basis by ID")
 	@GetMapping("/projectid")
 	public ResponseEntity<ApiResponse<Object>> getByProjectId(@RequestParam String projectId) {
-		log.info("Request get : {}", projectId);
-		return service.findByProjectId(projectId).map(
-				basis -> ResponseUtil.okObject(toResponseDTO(basis), "Freight calculation basis fetched successfully"))
-				.orElse(ResponseUtil.okEmpty("OK")); // Node-style 200 with {}
+	    log.info("Request get : {}", projectId);
+	    return service.findByProjectId(projectId)
+	            .map(basis ->
+	                    ResponseUtil.okObject(
+	                            toResponseDTO(basis),
+	                            "Freight calculation basis fetched successfully"
+	                    )
+	            )
+	            .orElse(ResponseUtil.okEmpty("OK"));
 	}
+
 
 	@Operation(summary = "Create freight calculation basis")
 	@PostMapping
@@ -80,29 +89,41 @@ public class ShipperFreightCalculationBasisController {
 	
 	@Operation(summary = "Get freight calculation countries by projectId")
 	@GetMapping("/countries")
-	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@RequestParam String projectId)
- {
-	    log.info("Request get freight countries projectId={}", projectId);
+	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(
+	        @RequestParam String projectId) {
 
-	    var countries = service.getCountriesByProjectId(projectId);
+	    log.info("Request get countries projectId={}", projectId);
 
-	    return ResponseUtil.okObject(countries, "Countries fetched successfully");
+	    List<String> countries = service.getCountriesByProjectId(projectId);
+
+	    return ResponseUtil.okObject(
+	            Map.of(
+	                "projectId", projectId,
+	                "countries", countries
+	            ),
+	            "Countries fetched successfully"
+	    );
 	}
+
 	
 	@Operation(summary = "Get freight calculation basis by projectId and countryCode")
 	@GetMapping("/country-basis")
 	public ResponseEntity<ApiResponse<Object>> getBasisByCountry(
 	        @RequestParam String projectId,
-	        @RequestParam(required = false) String countryCode)
- {
-
-	    log.info("Request get freight basis projectId={}, countryCode={}", projectId, countryCode);
+	        @RequestParam(required = false) String countryCode) {
 
 	    Object data = service.getBasisByCountry(projectId, countryCode);
 
-	    return ResponseUtil.okObject(data, "Freight basis fetched successfully");
-	}
+	    if (data == null) {
+	        return ResponseUtil.okEmpty("No freight basis found");
+	    }
 
+	   
+	    return ResponseUtil.okObject(
+	            data,
+	            "Freight basis fetched successfully"
+	    );
+	}
 
 
 	/* ---------- mapping helper ---------- */
