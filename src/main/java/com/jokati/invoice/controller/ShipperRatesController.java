@@ -125,6 +125,26 @@ public class ShipperRatesController {
 
         return ResponseUtil.okObject(rate, "Rate fetched successfully");
     }
+    
+    @Operation(summary = "Get shipper rates with pagination by projectId and countryCode")
+    @GetMapping("/country-rate/paginated")
+    public ResponseEntity<ApiResponse<Object>> getRateByCountryPaginated(
+            @RequestParam String projectId,
+            @RequestParam (required=false)String countryCode,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "4") int size
+    ) {
+
+        log.info(
+            "Request get paginated shipper rate projectId={}, countryCode={}, page={}, size={}",
+            projectId, countryCode, page, size
+        );
+
+        Object rate = service.getRateByCountryPaginated(projectId, countryCode,page,size);
+
+        return ResponseUtil.okObject(rate,"Rate fetched successfully with pagination");
+    }
+
 
 
 
