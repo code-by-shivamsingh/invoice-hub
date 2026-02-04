@@ -57,11 +57,15 @@ public class ShipperExtraCostsService {
 	
 	public List<String> getCountriesByProjectId(String projectId) {
 
-	    ShipperExtraCosts costs = repository.findByProjectId(projectId)
-	            .orElseThrow(() -> new NoSuchElementException("Extra costs not found for projectId: " + projectId));
-
-	    return new ArrayList<>(costs.getExtraCosts().keySet());
+	    return repository.findByProjectId(projectId)
+	            .map(costs -> {
+	                if (costs.getExtraCosts() == null) {return List.<String>of();
+	                }
+	                return new ArrayList<>(costs.getExtraCosts().keySet());
+	            })
+	            .orElse(List.of()); 
 	}
+
 	
 	public Object getExtraCostByCountry(String projectId, String countryCode) {
 

@@ -73,8 +73,11 @@ public class ShipperFreightCalculationBasisService {
     
     public List<String> getCountriesByProjectId(String projectId) {
 
-        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
-            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId).orElse(null);
+            
+        if (basis == null || basis.getCountries() == null) {
+        	return List.of();
+        }
 
         return new ArrayList<>(basis.getCountries().keySet()); 
     }
@@ -82,26 +85,29 @@ public class ShipperFreightCalculationBasisService {
     
     public Object getBasisByCountry(String projectId, String countryCode) {
 
-        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId)
-            .orElseThrow(() -> new NoSuchElementException("Basis not found"));
+        return repository.findByProjectId(projectId)
+                .map(basis -> { Map<String, Object> countriesMap = basis.getCountries();
 
-        Map<String, Object> countriesMap = basis.getCountries();
+                    // No countries configured
+                    if (countriesMap == null || countriesMap.isEmpty()) {
+                        return null; 
+                    }
 
-        // If countryCode not provided → take first country
-        if (countryCode == null || countryCode.isEmpty()) {
-            countryCode = countriesMap.keySet().stream()
-                    .findFirst()
-                    .orElseThrow(() -> new NoSuchElementException("No countries configured"));
-        }
+                    // If countryCode not provided → return first country
+                    if (countryCode == null || countryCode.trim().isEmpty()) {
+                        return countriesMap.values()
+                                .stream()
+                                .findFirst()
+                                .orElse(null);
+                    }
 
-        Object data = countriesMap.get(countryCode);
+                    // Specific country
+                    return countriesMap.getOrDefault(countryCode, null);
 
-        if (data == null) {
-            throw new NoSuchElementException("Basis not configured for country: " + countryCode);
-        }
-
-        return data;
+                })
+                .orElse(null); 
     }
+
 
 
     

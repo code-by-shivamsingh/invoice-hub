@@ -8,6 +8,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.slf4j.Logger;
@@ -70,15 +71,63 @@ public class InvoiceService {
         return mapper.toResponse(reconciled);
     }
 
-    public InvoiceResponseDTO get(String companyId, String invoiceNumber) {
-        Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
-                        ", invoiceNumber=" + invoiceNumber));
-     // Reconciliation pipeline
-     //   Invoice reconciled = invoiceReconciliation.reconcileAndPersist(entity);
+    /**
+     * Fetches invoice details with paginated shipments.
+     * Pagination is applied only on the embedded shipments list.
+     * Also returns pagination metadata for frontend navigation.
+     */
+    public Object get(
+            String companyId,
+            String invoiceNumber,
+            int page,
+            int size
+    ) {
 
-        return mapper.toResponse(entity);
+        if (size <= 0) size = 10;
+        if (size > 100) size = 100;
+
+        Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Invoice not found for companyId=" + companyId +
+                        ", invoiceNumber=" + invoiceNumber
+                ));
+
+        // entity -> dto
+        InvoiceResponseDTO dto = mapper.toResponse(entity);
+
+        List<ShipmentDTO> allShipments = dto.getShipments();
+        int totalElements = allShipments == null ? 0 : allShipments.size();
+
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        // page out-of-range guard
+        if (totalPages > 0 && page >= totalPages) {
+            page = totalPages - 1;
+        }
+
+        int start = page * size;
+        int end = Math.min(start + size, totalElements);
+
+        List<ShipmentDTO> pagedShipments = List.of();
+        if (start < totalElements) {
+            pagedShipments = allShipments.subList(start, end);
+        }
+
+        dto.setShipments(pagedShipments);
+
+        return Map.of(
+                "invoice", dto,
+                "pagination", Map.of(
+                        "page", page,
+                        "size", size,
+                        "totalElements", totalElements,
+                        "totalPages", totalPages,     
+                        "hasNext", page < totalPages - 1,
+                        "hasPrevious", page > 0
+                )
+        );
     }
+
 
     /** Filtered list for UI (Carrier, Invoice Number, From/To dates) */
     public List<InvoiceListItemDTO> listFiltered(String companyId,

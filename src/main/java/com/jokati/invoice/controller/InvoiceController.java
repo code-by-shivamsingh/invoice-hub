@@ -47,11 +47,15 @@ public class InvoiceController {
     @GetMapping("/{invoiceNumber}")
     public ResponseEntity<ApiResponse<Object>> get(
             @PathVariable String companyId,
-            @PathVariable String invoiceNumber) {
-        log.info("Invoice get: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
-        InvoiceResponseDTO dto = service.get(companyId, invoiceNumber);
-        return ResponseUtil.okObject(dto, "Invoice fetched successfully");
+            @PathVariable String invoiceNumber,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        Object response = service.get(companyId, invoiceNumber, page, size);
+        return ResponseUtil.okObject(response, "Invoice fetched successfully");
     }
+
 
     @Operation(summary = "Filtered list for UI (Carrier, Invoice Number, From/To date)")
     @GetMapping

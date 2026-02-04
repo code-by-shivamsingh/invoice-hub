@@ -39,17 +39,33 @@ public class ShipperRatesController {
 
     @Operation(summary = "Create shipper rates")
     @PostMapping
-    public ResponseEntity<ApiResponse<Object>> create(@Valid @RequestBody ShipperRatesRequestDTO request) {
-        log.info("Request create : {}", request);
+    public ResponseEntity<ApiResponse<Object>> create(
+            @Valid @RequestBody ShipperRatesRequestDTO request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "4") int size
+    ) {
 
+        log.info("Request create shipper rates : {}", request);
+
+      
         ShipperRates entity = toEntity(request);
         ShipperRates saved = service.save(entity);
 
+        //  Reuse existing pagination logic for response
+        Object paginatedResponse = service.getRateByCountryPaginated(
+                saved.getProjectId(),
+                null,   // countryCode not passed → first country auto
+                page,
+                size
+        );
+
+        //Return paginated response
         return ResponseUtil.okObject(
-                toResponseDTO(saved),
+                paginatedResponse,
                 "Shipper rates saved successfully"
         );
     }
+
 
     @Operation(summary = "Update shipper rates")
     @PutMapping("/{id}")
