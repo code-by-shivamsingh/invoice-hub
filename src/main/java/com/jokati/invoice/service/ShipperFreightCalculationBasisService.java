@@ -114,8 +114,10 @@ public class ShipperFreightCalculationBasisService {
             return null; 
         }
 
-        return data;
+                })
+                .orElse(null); 
     }
+
 
 
     

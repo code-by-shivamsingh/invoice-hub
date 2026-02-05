@@ -62,11 +62,16 @@ public class ShipperRatesService {
 	// Get country list by projectId
 	public List<String> getCountriesByProjectId(String projectId) {
 
-	    ShipperRates rates = repository.findByProjectId(projectId)
-	            .orElseThrow(() -> new NoSuchElementException("Shipper rates not found for projectId: " + projectId));
-
-	    return new ArrayList<>(rates.getRates().keySet());
+	    return repository.findByProjectId(projectId)
+	            .map(rates -> {
+	                if (rates.getRates() == null) {
+	                    return List.<String>of();
+	                }
+	                return new ArrayList<>(rates.getRates().keySet());
+	            })
+	            .orElse(List.of()); 
 	}
+
 
 	// Get rate by country (default first country)
 	public Object getRateByCountry(String projectId, String countryCode) {
@@ -105,102 +110,108 @@ public class ShipperRatesService {
 	        int size
 	) {
 
-	    ShipperRates rates = repository.findByProjectId(projectId)
-	            .orElseThrow(() ->new NoSuchElementException(
-                                      "Shipper rates not found for projectId: " + projectId));
+	 return repository.findByProjectId(projectId)
+	      .map(rates -> {
 
-	    Map<String, Object> rateMap = rates.getRates();
+	   Map<String, Object> rateMap = rates.getRates();
+	   if (rateMap == null || rateMap.isEmpty()) {
+	   return Map.of();
+	       }
 
-	    //  Default country if not provided
-	    if (countryCode == null || countryCode.trim().isEmpty()) {
-	        countryCode = rateMap.keySet().stream()
-	                .findFirst()
-	                .orElseThrow(() ->new NoSuchElementException("No countries configured"));
-	    }
+	       String resolvedCountryCode = countryCode;
+	       if (resolvedCountryCode == null || resolvedCountryCode.trim().isEmpty()) {
+	       resolvedCountryCode = rateMap.keySet().iterator().next();
+	             }
 
-	    Map<String, Object> countryRate =
-	            (Map<String, Object>) rateMap.get(countryCode);
+	       Map<String, Object> countryRate =
+          (Map<String, Object>) rateMap.get(resolvedCountryCode);
+	        if (countryRate == null) {
+	        return Map.of();
+	                }
 
-	    if (countryRate == null) {
-	        throw new NoSuchElementException( "Rate not configured for country: " + countryCode);
-	    }
+	      List<Map<String, Object>> zipCodes =
+	     (List<Map<String, Object>>) countryRate.get("ZipCodes");
+	        if (zipCodes == null) { zipCodes = List.of();
+	     }
 
-	   
-	    List<Map<String, Object>> zipCodes = (List<Map<String, Object>>) countryRate.get("ZipCodes");
+	       int totalElements = zipCodes.size();
+	       int totalPages = (int) Math.ceil((double) totalElements / size);
+	       boolean hasPrevious = page > 0;
+	       boolean hasNext = page < totalPages - 1;
 
-	    if (zipCodes == null) {
-	        zipCodes = List.of();
-	    }
+	       Map<String, Object> pagination = new LinkedHashMap<>();
+	       pagination.put("page", page);
+	       pagination.put("size", size);
+	       pagination.put("totalElements", totalElements);
+	       pagination.put("totalPages", totalPages);
+	       pagination.put("hasPrevious", hasPrevious);
+	       pagination.put("hasNext", hasNext);
 
-	    //Pagination counts (ZipCodes based)
-	    int totalElements = zipCodes.size();
-	    int totalPages = (int) Math.ceil((double) totalElements / size);
-	    boolean hasPrevious = page > 0;
-	    boolean hasNext = page < totalPages - 1;
-
-	    Map<String, Object> pagination = new LinkedHashMap<>();
-	    pagination.put("page", page);
-	    pagination.put("size", size);
-	    pagination.put("totalElements", totalElements);
-	    pagination.put("totalPages", totalPages);
-	    pagination.put("hasPrevious", hasPrevious);
-	    pagination.put("hasNext", hasNext);
-
-	    // Selected ZipCodes for this page
 	    List<Map<String, Object>> selectedZipCodes = zipCodes.stream()
 	            .skip((long) page * size)
 	            .limit(size)
 	            .toList();
 
-	    //ZipCode Ids (source of truth)
-	    Set<String> allowedZipIds = selectedZipCodes.stream()
-	            .map(z -> (String) z.get("Id"))
-	            .collect(java.util.stream.Collectors.toSet());
+	        Set<String> allowedZipIds = selectedZipCodes.stream()
+	        .map(z -> (String) z.get("Id"))
+	        .collect(java.util.stream.Collectors.toSet());
 
+	     Map<String, Object> weights =  (Map<String, Object>) countryRate.get("Weights");
 
-	    Map<String, Object> weights = (Map<String, Object>) countryRate.get("Weights");
+	        Map<String, Object> filteredWeights = new LinkedHashMap<>();
 
-	    Map<String, Object> filteredWeights = new LinkedHashMap<>();
+	            if (weights != null) {
+	                    for (Map.Entry<String, Object> entry : weights.entrySet()) {
 
-	    if (weights != null) {
-	        for (Map.Entry<String, Object> entry : weights.entrySet()) {
+	        Map<String, Object> weightData = (Map<String, Object>) entry.getValue();
+	                        if (weightData == null) continue;
 
-	            Map<String, Object> weightData = (Map<String, Object>) entry.getValue();
+	        Map<String, Object> prices = (Map<String, Object>) weightData.get("Prices");
+	                        if (prices == null || prices.isEmpty()) continue;
 
-	            if (weightData == null) continue;
+	          Map<String, Double> filteredPrices = prices.entrySet()
+	                       .stream()
+	                       .filter(e -> allowedZipIds.contains(e.getKey()))
+	                       .collect(java.util.stream.Collectors.toMap(
+	                          Map.Entry::getKey, e -> {
+	                      Object val = e.getValue();
+	                      if (val == null) return null;
 
-	            Map<String, Object> prices = (Map<String, Object>) weightData.get("Prices");
+	                       if (val instanceof Number) {
+	                              return ((Number) val).doubleValue();
+	                   }
 
-	            if (prices == null || prices.isEmpty()) continue;
+	                         // String like "29,1375" -> "29.1375"
+	                          String s = val.toString()
+	                         .trim()
+	                         .replace(",", ".");
+	                          return Double.parseDouble(s);
+	                   },
+	                      (a, b) -> a,
+	                      LinkedHashMap::new
+	                                ));
 
-	            // ONLY prices matching ZipCode Ids
-	            Map<String, Double> filteredPrices = prices.entrySet()
-	                    .stream()
-	                    .filter(e -> allowedZipIds.contains(e.getKey()))
-	                    .collect(java.util.stream.Collectors.toMap(
-	                            Map.Entry::getKey,
-	                            e -> ((Number) e.getValue()).doubleValue(),
-	                            (a, b) -> a,
-	                            LinkedHashMap::new
-	                    ));
+	                        Map<String, Object> newWeightData = new LinkedHashMap<>();
+	                        newWeightData.put("Id", weightData.get("Id"));
+	                        newWeightData.put("Prices", filteredPrices);
 
-	            Map<String, Object> newWeightData = new LinkedHashMap<>();
-	            newWeightData.put("Id", weightData.get("Id"));
-	            newWeightData.put("Prices", filteredPrices);
+	                        filteredWeights.put(entry.getKey(), newWeightData);
+	                    }
+	                }
 
-	            filteredWeights.put(entry.getKey(), newWeightData);
-	        }
-	    }
+	                Map<String, Object> response = new LinkedHashMap<>();
+	                response.put("CountryCode", resolvedCountryCode);
+	                response.put("TariffType", countryRate.get("TariffType"));
+	                response.put("Weights", filteredWeights);
+	                response.put("ZipCodes", selectedZipCodes);
+	                response.put("Pagination", pagination);
 
-	 
-	    Map<String, Object> response = new LinkedHashMap<>();
-	    response.put("CountryCode", countryCode);
-	    response.put("TariffType", countryRate.get("TariffType"));
-	    response.put("Weights", filteredWeights);
-	    response.put("ZipCodes", selectedZipCodes);
-	    response.put("Pagination", pagination);
-
-	    return response;
+	                return response;
+	            })
+	            .orElse(Map.of());
 	}
+
+
+
 
 }
