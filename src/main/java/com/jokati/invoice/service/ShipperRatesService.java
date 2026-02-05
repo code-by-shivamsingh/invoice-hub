@@ -12,6 +12,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jokati.invoice.dto.ShipperRateUpdateItemDTO;
+import com.jokati.invoice.dto.ShipperRateUpdateRequestDTO;
 import com.jokati.invoice.model.ShipperRates;
 import com.jokati.invoice.repository.ShipperRatesRepository;
 
@@ -209,6 +211,50 @@ public class ShipperRatesService {
 	                return response;
 	            })
 	            .orElse(Map.of());
+	}
+	
+	@Transactional
+	public void updateVisibleRates(ShipperRateUpdateRequestDTO request) {
+
+	    ShipperRates rates = repository
+	            .findFirstByProjectIdOrderByIdDesc(request.getProjectId())
+	            .orElseThrow(() ->
+	                    new NoSuchElementException(
+	                            "Shipper rates not found for projectId: " + request.getProjectId()));
+
+	    Map<String, Object> rateMap = rates.getRates();
+	    if (rateMap == null || rateMap.isEmpty()) {
+	        throw new NoSuchElementException("No rates configured for this project");
+	    }
+
+	    Map<String, Object> countryRate = (Map<String, Object>) rateMap.get(request.getCountryCode());
+
+	    if (countryRate == null) {
+	        throw new NoSuchElementException(
+	                "Country not found: " + request.getCountryCode());
+	    }
+
+	    Map<String, Object> weights =(Map<String, Object>) countryRate.get("Weights");
+
+	    if (weights == null) {
+	        return; // nothing to update
+	    }
+
+	    //  UPDATE ONLY WHAT FRONTEND SENT
+	    for (ShipperRateUpdateItemDTO item : request.getUpdates()) {
+
+	        Map<String, Object> weightData = (Map<String, Object>) weights.get(item.getWeight());
+
+	        if (weightData == null) continue;
+
+	        Map<String, Object> prices =  (Map<String, Object>) weightData.get("Prices");
+
+	        if (prices == null) continue;
+
+	        prices.put(item.getZipCodeId(), item.getPrice());
+	    }
+
+	    repository.save(rates);
 	}
 
 

@@ -97,25 +97,22 @@ public class ShipperFreightCalculationBasisService {
         Optional<ShipperFreightCalculationBasis> optionalBasis =
                 repository.findByProjectId(projectId);
 
-      
         if (optionalBasis.isEmpty()) {
-            return null; 
+            return null;
         }
+
         ShipperFreightCalculationBasis basis = optionalBasis.get();
         Map<String, Object> countriesMap = basis.getCountries();
+
         if (countriesMap == null || countriesMap.isEmpty()) {
-            return null; 
+            return null;
         }
+
         if (countryCode == null || countryCode.isBlank()) {
             countryCode = countriesMap.keySet().iterator().next();
         }
-        Object data = countriesMap.get(countryCode);
-        if (data == null) {
-            return null; 
-        }
 
-                })
-                .orElse(null); 
+        return countriesMap.get(countryCode); 
     }
 
 

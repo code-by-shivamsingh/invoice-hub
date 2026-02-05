@@ -1,6 +1,8 @@
 
 package com.jokati.invoice.controller;
 
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.ShipperRateUpdateRequestDTO;
 import com.jokati.invoice.dto.ShipperRatesRequestDTO;
 import com.jokati.invoice.dto.ShipperRatesResponseDTO;
 import com.jokati.invoice.model.ShipperRates;
@@ -159,6 +162,41 @@ public class ShipperRatesController {
         Object rate = service.getRateByCountryPaginated(projectId, countryCode,page,size);
 
         return ResponseUtil.okObject(rate,"Rate fetched successfully with pagination");
+    }
+    
+    @Operation(summary = "Update shipper rates for visible (paginated) items only")
+    @PutMapping("/country-rate")
+    public ResponseEntity<ApiResponse<Object>> updateRates(
+            @RequestBody ShipperRateUpdateRequestDTO request
+    ) {
+
+        log.info(
+            "Request update shipper rates projectId={}, countryCode={}, items={}",
+            request.getProjectId(),
+            request.getCountryCode(),
+            request.getUpdates() != null ? request.getUpdates().size() : 0
+        );
+
+        service.updateVisibleRates(request);
+
+        return ResponseUtil.okEmpty("Rates updated successfully");
+    }
+    
+    @Operation(summary = "Create shipper rates (save only)")
+    @PostMapping("/save")
+    public ResponseEntity<ApiResponse<Object>> saveOnly(
+            @Valid @RequestBody ShipperRatesRequestDTO request
+    ) {
+
+        log.info("Request save-only shipper rates : {}", request);
+
+        ShipperRates entity = toEntity(request);
+        ShipperRates saved = service.save(entity);
+
+        return ResponseUtil.okObject(
+                Map.of("id", saved.getId()),
+                "Shipper rates saved successfully"
+        );
     }
 
 
