@@ -73,36 +73,46 @@ public class ShipperFreightCalculationBasisService {
     
     public List<String> getCountriesByProjectId(String projectId) {
 
-        ShipperFreightCalculationBasis basis = repository.findByProjectId(projectId).orElse(null);
-            
-        if (basis == null || basis.getCountries() == null) {
-        	return List.of();
+        Optional<ShipperFreightCalculationBasis> optionalBasis =
+                repository.findByProjectId(projectId);
+
+       
+        if (optionalBasis.isEmpty()) {
+            return List.of("DE");
         }
 
-        return new ArrayList<>(basis.getCountries().keySet()); 
+        ShipperFreightCalculationBasis basis = optionalBasis.get();
+
+        
+        if (basis.getCountries() == null || basis.getCountries().isEmpty()) {
+            return List.of("DE");
+        }
+
+        return new ArrayList<>(basis.getCountries().keySet());
     }
-    
+
     
     public Object getBasisByCountry(String projectId, String countryCode) {
 
-        return repository.findByProjectId(projectId)
-                .map(basis -> { Map<String, Object> countriesMap = basis.getCountries();
+        Optional<ShipperFreightCalculationBasis> optionalBasis =
+                repository.findByProjectId(projectId);
 
-                    // No countries configured
-                    if (countriesMap == null || countriesMap.isEmpty()) {
-                        return null; 
-                    }
-
-                    // If countryCode not provided → return first country
-                    if (countryCode == null || countryCode.trim().isEmpty()) {
-                        return countriesMap.values()
-                                .stream()
-                                .findFirst()
-                                .orElse(null);
-                    }
-
-                    // Specific country
-                    return countriesMap.getOrDefault(countryCode, null);
+      
+        if (optionalBasis.isEmpty()) {
+            return null; 
+        }
+        ShipperFreightCalculationBasis basis = optionalBasis.get();
+        Map<String, Object> countriesMap = basis.getCountries();
+        if (countriesMap == null || countriesMap.isEmpty()) {
+            return null; 
+        }
+        if (countryCode == null || countryCode.isBlank()) {
+            countryCode = countriesMap.keySet().iterator().next();
+        }
+        Object data = countriesMap.get(countryCode);
+        if (data == null) {
+            return null; 
+        }
 
                 })
                 .orElse(null); 
