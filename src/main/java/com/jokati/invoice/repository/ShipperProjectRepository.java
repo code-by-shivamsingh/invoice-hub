@@ -1,4 +1,3 @@
-
 package com.jokati.invoice.repository;
 
 
@@ -54,5 +53,12 @@ public interface ShipperProjectRepository extends MongoRepository<ShipperProject
     Optional<ShipperProject> findFirstByUserIdAndNameIgnoreCase(String userId, String name);
 
     List<ShipperProject> findByUserIdAndNameIgnoreCase(String userId, String name);
-}
+    
+    Optional<ShipperProject> findFirstByCompanyIdAndNameIgnoreCase(String companyId, String name);
+    
+    @Query("{ 'companyId': ?0, 'name': { $regex: '^?1$', $options: 'i' }, 'active': true }")
+    Optional<ShipperProject> findFirstActiveByCompanyIdAndNameIgnoreCase(String companyId, String name);
 
+    @Query("{ 'companyId': ?0, 'name': { $regex: '^?1$', $options: 'i' }, 'active': true }")
+    List<ShipperProject> findActiveByCompanyIdAndNameIgnoreCase(String companyId, String name);
+}

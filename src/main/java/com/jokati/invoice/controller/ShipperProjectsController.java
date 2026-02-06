@@ -68,6 +68,7 @@ public class ShipperProjectsController {
     public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> create(
             @Valid @RequestBody ShipperProjectRequestDTO requestDTO) {
         log.info("Request create : {}", requestDTO);
+        
         var saved = service.create(requestDTO);
         // Using 200 OK to mirror your Node behavior; if you prefer 201, use ResponseUtil.created(...)
         return ResponseUtil.ok(saved, "Project created successfully");

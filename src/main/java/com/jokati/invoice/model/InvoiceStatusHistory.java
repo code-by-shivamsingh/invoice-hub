@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Document(collection = "invoice_status_history")
+@Document(collection = "invoice-status-history")
 @Getter
 @Setter        
 @NoArgsConstructor
