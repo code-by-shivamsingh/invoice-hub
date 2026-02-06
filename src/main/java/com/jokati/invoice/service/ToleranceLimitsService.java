@@ -2,6 +2,10 @@
 package com.jokati.invoice.service;
 
 import java.util.List;
+
+import java.math.BigDecimal;
+import java.util.Collections;
+
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
@@ -52,13 +56,15 @@ public class ToleranceLimitsService {
     }
 
     /** Fetch by CompanyId. Throws 404 via GlobalExceptionHandler when not found. */
+    /** Fetch by CompanyId. If not found, return default values (0). */
     public ToleranceLimitsResponseDTO getByCompanyId(String companyId) {
         if (!StringUtils.hasText(companyId)) {
             throw new IllegalArgumentException("companyId must not be blank");
         }
-        ToleranceLimits entity = repository.findByCompanyId(companyId)
-                .orElseThrow(() -> new NoSuchElementException("Tolerance limits not found for CompanyId: " + companyId));
-        return mapper.toResponse(entity);
+
+        return repository.findByCompanyId(companyId)
+                .map(mapper::toResponse)
+                .orElseGet(() -> defaultResponse(companyId));
     }
 
     /** Replace entire record for CompanyId. */
@@ -151,5 +157,21 @@ public class ToleranceLimitsService {
                         ))
                         .values().stream().toList()
         );
+    }
+    
+    private ToleranceLimitsResponseDTO defaultResponse(String companyId) {
+        return ToleranceLimitsResponseDTO.builder()
+                .id(null)
+                .companyId(companyId)
+                .freightCostsPercent(BigDecimal.ZERO)
+                .standardAdditionalCostsPercent(BigDecimal.ZERO)
+                // choose a safe default; adjust if your business wants true
+                .onlyPositiveDeviation(Boolean.FALSE)
+                // always return an empty list instead of null
+                .ancillaryTolerances(Collections.emptyList())
+                // no document exists so timestamps are null
+                .createdAt(null)
+                .updatedAt(null)
+                .build();
     }
 }
