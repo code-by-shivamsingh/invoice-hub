@@ -16,11 +16,8 @@ import com.jokati.invoice.dto.ToleranceLimitsResponseDTO;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
 import com.jokati.invoice.model.ShipmentItemDocument;
-import com.jokati.invoice.model.ShipmentSummary;
 import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.repository.InvoiceRepository;
-import com.jokati.invoice.service.ShipmentSummaryService.RowSummedTotal;
-import com.jokati.invoice.service.ShipmentSummaryService.ShipmentTotalSummary;
 import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
 import static com.jokati.invoice.constants.BillingStatusConstants.*;
 
