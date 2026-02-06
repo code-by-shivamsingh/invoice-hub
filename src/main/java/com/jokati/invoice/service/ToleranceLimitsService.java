@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -42,8 +43,18 @@ public class ToleranceLimitsService {
         }
 
         if (repository.existsByCompanyId(request.getCompanyId())) {
-            // Prefer DB unique index; if not present, throwing here maps to 409 via global handler
-            throw new DuplicateKeyException("Tolerance limits already exist for CompanyId: " + request.getCompanyId());
+//            // Prefer DB unique index; if not present, throwing here maps to 409 via global handler
+//            throw new DuplicateKeyException("Tolerance limits already exist for CompanyId: " + request.getCompanyId());
+        	ToleranceLimits existing = repository.findByCompanyId(request.getCompanyId())
+                .orElseThrow(() -> new NoSuchElementException("Tolerance limits not found for CompanyId: " + request.getCompanyId()));
+        	 ToleranceLimits updated = mapper.toEntity(request);
+             updated.setId(existing.getId());
+             updated.setCompanyId(request.getCompanyId());
+             dedupeAncillary(updated);
+
+             ToleranceLimits saved = repository.save(updated);
+             log.info("Tolerance replaced: companyId={}", saved.getCompanyId());
+             return mapper.toResponse(saved);
         }
 
         ToleranceLimits entity = mapper.toEntity(request);
@@ -64,28 +75,29 @@ public class ToleranceLimitsService {
 
         return repository.findByCompanyId(companyId)
                 .map(mapper::toResponse)
-                .orElseGet(() -> defaultResponse(companyId));
+                .orElseGet(() -> defaultResponse(companyId)
+                		);
     }
 
     /** Replace entire record for CompanyId. */
-    public ToleranceLimitsResponseDTO replace(String companyId, ToleranceLimitsRequestDTO request) {
-        ToleranceLimits existing = repository.findByCompanyId(companyId)
-                .orElseThrow(() -> new NoSuchElementException("Tolerance limits not found for CompanyId: " + companyId));
-
-        // Enforce request.companyId == path companyId (if provided)
-        if (request.getCompanyId() != null && !companyId.equals(request.getCompanyId())) {
-            throw new IllegalArgumentException("CompanyId in path and body must match");
-        }
-
-        ToleranceLimits updated = mapper.toEntity(request);
-        updated.setId(existing.getId());
-        updated.setCompanyId(companyId);
-        dedupeAncillary(updated);
-
-        ToleranceLimits saved = repository.save(updated);
-        log.info("Tolerance replaced: companyId={}", saved.getCompanyId());
-        return mapper.toResponse(saved);
-    }
+//    public ToleranceLimitsResponseDTO replace(String companyId, ToleranceLimitsRequestDTO request) {
+//        ToleranceLimits existing = repository.findByCompanyId(companyId)
+//                .orElseThrow(() -> new NoSuchElementException("Tolerance limits not found for CompanyId: " + companyId));
+//
+//        // Enforce request.companyId == path companyId (if provided)
+//        if (request.getCompanyId() != null && !companyId.equals(request.getCompanyId())) {
+//            throw new IllegalArgumentException("CompanyId in path and body must match");
+//        }
+//
+//        ToleranceLimits updated = mapper.toEntity(request);
+//        updated.setId(existing.getId());
+//        updated.setCompanyId(companyId);
+//        dedupeAncillary(updated);
+//
+//        ToleranceLimits saved = repository.save(updated);
+//        log.info("Tolerance replaced: companyId={}", saved.getCompanyId());
+//        return mapper.toResponse(saved);
+//    }
 
     /** Patch (partial update) for CompanyId. */
     public ToleranceLimitsResponseDTO patch(String companyId, ToleranceLimitsPatchRequestDTO patch) {
@@ -161,7 +173,6 @@ public class ToleranceLimitsService {
     
     private ToleranceLimitsResponseDTO defaultResponse(String companyId) {
         return ToleranceLimitsResponseDTO.builder()
-                .id(null)
                 .companyId(companyId)
                 .freightCostsPercent(BigDecimal.ZERO)
                 .standardAdditionalCostsPercent(BigDecimal.ZERO)
@@ -170,8 +181,6 @@ public class ToleranceLimitsService {
                 // always return an empty list instead of null
                 .ancillaryTolerances(Collections.emptyList())
                 // no document exists so timestamps are null
-                .createdAt(null)
-                .updatedAt(null)
                 .build();
     }
 }

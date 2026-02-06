@@ -56,15 +56,15 @@ public class ToleranceLimitsController {
         return ResponseUtil.okObject(dto, "Tolerance limits fetched successfully");
     }
 
-    @Operation(summary = "Replace tolerance limits (PUT) by companyId")
-    @PutMapping("/{companyId}")
-    public ResponseEntity<ApiResponse<Object>> replace(
-            @PathVariable String companyId,
-            @Valid @RequestBody ToleranceLimitsRequestDTO request) {
-        log.info("Tolerance replace: companyId={}", companyId);
-        ToleranceLimitsResponseDTO dto = service.replace(companyId, request);
-        return ResponseUtil.okObject(dto, "Tolerance limits replaced successfully");
-    }
+//    @Operation(summary = "Replace tolerance limits (PUT) by companyId")
+//    @PutMapping("/{companyId}")
+//    public ResponseEntity<ApiResponse<Object>> replace(
+//            @PathVariable String companyId,
+//            @Valid @RequestBody ToleranceLimitsRequestDTO request) {
+//        log.info("Tolerance replace: companyId={}", companyId);
+//        ToleranceLimitsResponseDTO dto = service.replace(companyId, request);
+//        return ResponseUtil.okObject(dto, "Tolerance limits replaced successfully");
+//    }
 
     @Operation(summary = "Patch tolerance limits by companyId")
     @PatchMapping("/{companyId}")
