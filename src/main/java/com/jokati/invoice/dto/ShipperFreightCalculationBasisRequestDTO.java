@@ -3,6 +3,8 @@ package com.jokati.invoice.dto;
 
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -18,6 +20,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ShipperFreightCalculationBasisRequestDTO {
+	
+	@JsonAlias("_id")
+    private String id;
 
     @NotBlank(message = "projectId is required")
     private String projectId;
@@ -34,4 +39,6 @@ public class ShipperFreightCalculationBasisRequestDTO {
 
     /** optional dynamic additions */
     private Map<String, Object> extra;
+    
 }
+

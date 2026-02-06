@@ -4,6 +4,7 @@ package com.jokati.invoice.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -43,17 +44,11 @@ public class ShipperFreightCalculationBasisController {
 	@Operation(summary = "Get freight calculation basis by ID")
 	@GetMapping("/projectid")
 	public ResponseEntity<ApiResponse<Object>> getByProjectId(@RequestParam String projectId) {
-	    log.info("Request get : {}", projectId);
-	    return service.findByProjectId(projectId)
-	            .map(basis ->
-	                    ResponseUtil.okObject(
-	                            toResponseDTO(basis),
-	                            "Freight calculation basis fetched successfully"
-	                    )
-	            )
-	            .orElse(ResponseUtil.okEmpty("OK"));
+		log.info("Request get : {}", projectId);
+		return service.findByProjectId(projectId).map(
+				basis -> ResponseUtil.okObject(toResponseDTO(basis), "Freight calculation basis fetched successfully"))
+				.orElse(ResponseUtil.okEmpty("OK"));
 	}
-
 
 	@Operation(summary = "Create freight calculation basis")
 	@PostMapping
@@ -65,6 +60,22 @@ public class ShipperFreightCalculationBasisController {
 		var saved = service.save(entity);
 
 		return ResponseUtil.okObject(toResponseDTO(saved), "Freight calculation basis saved successfully");
+	}
+
+	@Operation(summary = "Create freight calculation basis add individual country")
+	@PostMapping("/countrywise")
+	public ResponseEntity<ApiResponse<Object>> createCountryWise(
+			@Valid @RequestBody ShipperFreightCalculationBasisRequestDTO request) {
+
+		log.info("Request createCountryWise projectId={}, id={}", request.getProjectId(), request.getId());
+
+		ShipperFreightCalculationBasis saved = service.createOrUpdateCountryWise(request);
+
+		// ✅ Return only the recently added country/countries from THIS request
+		Map<String, Object> filteredCountries = service.filterCountriesForResponse(saved, request.getCountries());
+
+		return ResponseUtil.okObject(toResponseDTO(saved, filteredCountries),
+				"Freight calculation basis saved successfully");
 	}
 
 	@Operation(summary = "Update freight calculation basis")
@@ -86,45 +97,32 @@ public class ShipperFreightCalculationBasisController {
 		service.delete(id);
 		return ResponseUtil.okEmpty("Freight calculation basis deleted successfully");
 	}
-	
+
 	@Operation(summary = "Get freight calculation countries by projectId")
 	@GetMapping("/countries")
-	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(
-	        @RequestParam String projectId) {
+	public ResponseEntity<ApiResponse<Object>> getCountriesByProjectId(@RequestParam String projectId) {
 
-	    log.info("Request get countries projectId={}", projectId);
+		log.info("Request get countries projectId={}", projectId);
 
-	    List<String> countries = service.getCountriesByProjectId(projectId);
+		List<String> countries = service.getCountriesByProjectId(projectId);
 
-	    return ResponseUtil.okObject(
-	            Map.of(
-	                "projectId", projectId,
-	                "countries", countries
-	            ),
-	            "Countries fetched successfully"
-	    );
+		return ResponseUtil.okObject(Map.of("projectId", projectId, "countries", countries),
+				"Countries fetched successfully");
 	}
 
-	
 	@Operation(summary = "Get freight calculation basis by projectId and countryCode")
 	@GetMapping("/country-basis")
-	public ResponseEntity<ApiResponse<Object>> getBasisByCountry(
-	        @RequestParam String projectId,
+	public ResponseEntity<ApiResponse<Object>> getBasisByCountry(@RequestParam String projectId,
 	        @RequestParam(required = false) String countryCode) {
 
-	    Object data = service.getBasisByCountry(projectId, countryCode);
+	    ShipperFreightCalculationBasis data = service.getBasisByCountry(projectId, countryCode);
 
 	    if (data == null) {
-	        return ResponseUtil.okEmpty("No freight basis found");
+	        return ResponseUtil.okEmpty("No freight basis found"); // projectId missing
 	    }
 
-	   
-	    return ResponseUtil.okObject(
-	            data,
-	            "Freight basis fetched successfully"
-	    );
+	    return ResponseUtil.okObject(toResponseDTO(data), "Freight basis fetched successfully");
 	}
-
 
 	/* ---------- mapping helper ---------- */
 
@@ -134,5 +132,13 @@ public class ShipperFreightCalculationBasisController {
 				.carrierProjectId(entity.getCarrierProjectId()).countries(entity.getCountries())
 				.firebaseId(entity.getFirebaseId()).extra(entity.getExtra()).createdAt(entity.getCreatedAt())
 				.updatedAt(entity.getUpdatedAt()).build();
+	}
+
+	private ShipperFreightCalculationBasisResponseDTO toResponseDTO(ShipperFreightCalculationBasis entity,
+			Map<String, Object> countries) {
+		return ShipperFreightCalculationBasisResponseDTO.builder()
+				.id(entity.getId() != null ? entity.getId().toHexString() : null).projectId(entity.getProjectId())
+				.carrierProjectId(entity.getCarrierProjectId()).countries(countries).firebaseId(entity.getFirebaseId())
+				.extra(entity.getExtra()).createdAt(entity.getCreatedAt()).updatedAt(entity.getUpdatedAt()).build();
 	}
 }
