@@ -11,6 +11,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,7 +43,8 @@ public class ShipperProject {
     private String city;
     private String country;
     private String contactName;
-    private Double phoneNo;
+    private String phoneNo;
+    private String customerNumber;
     private String email;
     private Boolean active;
 

@@ -69,9 +69,13 @@ public class ShipperExtraCostsService {
 	
 	public Object getExtraCostByCountry(String projectId, String countryCode) {
 
-	    ShipperExtraCosts costs = repository.findByProjectId(projectId)
-	            .orElseThrow(() -> new NoSuchElementException("Extra costs not found for projectId: " + projectId));
+	    Optional<ShipperExtraCosts> optionalCosts = repository.findByProjectId(projectId) ;
+	    
+	    if (optionalCosts.isEmpty()) {
+            return null;
+        }
 
+	    ShipperExtraCosts costs = optionalCosts.get();
 	    Map<String, Object> extraCosts = costs.getExtraCosts();
 
 	    // If countryCode not provided → take first country
@@ -82,10 +86,6 @@ public class ShipperExtraCostsService {
 	    }
 
 	    Object cost = extraCosts.get(countryCode);
-
-	    if (cost == null) {
-	        throw new NoSuchElementException("Extra cost not configured for country: " + countryCode);
-	    }
 
 	    return cost;
 	}

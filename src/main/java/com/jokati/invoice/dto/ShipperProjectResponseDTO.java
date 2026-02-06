@@ -24,7 +24,8 @@ public class ShipperProjectResponseDTO {
     private String city;
     private String country;
     private String contactName;
-    private Double phoneNo;
+    private String phoneNo;
+    private String customerNumber;
     private String email;
     private Boolean active;
     private Map<String, Object> extra;     // dynamic content

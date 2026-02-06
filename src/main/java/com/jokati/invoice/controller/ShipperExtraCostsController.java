@@ -121,7 +121,11 @@ public class ShipperExtraCostsController {
 
         log.info("Request get extra cost projectId={}, countryCode={}", projectId, countryCode);
 
-        Object cost = service.getExtraCostByCountry(projectId, countryCode);
+        var cost = service.getExtraCostByCountry(projectId, countryCode);
+        
+        if (cost == null) {
+	        return ResponseUtil.okEmpty("No Extra cost found");
+	    }
 
         return ResponseUtil.okObject(cost, "Extra cost fetched successfully");
     }

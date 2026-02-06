@@ -46,7 +46,10 @@ public class ShipperProjectRequestDTO {
     private String contactName;
     
     // @NotBlank(message = "Phone No is required")
-    private Double phoneNo;
+    private String phoneNo;
+    
+    @NotBlank(message = "customerNumber is required")
+    private String customerNumber;
     
     @NotBlank(message = "Email Id is required")
     private String email;

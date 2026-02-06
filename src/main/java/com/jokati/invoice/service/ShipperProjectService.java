@@ -103,6 +103,7 @@ public class ShipperProjectService {
 
                     existing.setContactName(req.getContactName());
                     existing.setPhoneNo(req.getPhoneNo());
+                    existing.setCustomerNumber(req.getCustomerNumber());
                     existing.setEmail(req.getEmail());
 
                     // Since rule is "only active=true", keep it active.
@@ -126,6 +127,7 @@ public class ShipperProjectService {
                             .country(req.getCountry())
                             .contactName(req.getContactName())
                             .phoneNo(req.getPhoneNo())
+                            .customerNumber(req.getCustomerNumber())
                             .email(req.getEmail())
                             // For new document: if req.active is null, default to true (ACTIVE project)
                             .active(req.getActive() != null ? req.getActive() : true)
@@ -233,6 +235,7 @@ public class ShipperProjectService {
                 .country(entity.getCountry())
                 .contactName(entity.getContactName())
                 .phoneNo(entity.getPhoneNo())
+                .customerNumber(entity.getCustomerNumber())
                 .email(entity.getEmail())
                 .active(entity.getActive())
                 .extra(entity.getExtra())
