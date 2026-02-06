@@ -69,7 +69,6 @@ public class ShipperProjectService {
      */
     @Transactional
     public ShipperProjectResponseDTO create(ShipperProjectRequestDTO req) {
-
         // Basic validations
         if (!StringUtils.hasText(req.getUserId())) {
             throw new IllegalArgumentException("userId is required");

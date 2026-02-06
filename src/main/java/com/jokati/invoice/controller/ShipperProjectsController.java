@@ -74,17 +74,17 @@ public class ShipperProjectsController {
         return ResponseUtil.ok(saved, "Project created successfully");
     }
 
-    @Operation(
-        summary = "Update a shipper project by projectId/_id",
-        description = "Validates id and name; returns 404 if not found, 400 if invalid."
-    )
-    @PutMapping
-    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> update(
-            @Valid @RequestBody ShipperProjectUpdateRequestDTO requestDTO) {
-        log.info("Request update : {}", requestDTO);
-        var updated = service.update(requestDTO);
-        return ResponseUtil.ok(updated, "Project updated successfully");
-    }
+//    @Operation(
+//        summary = "Update a shipper project by projectId/_id",
+//        description = "Validates id and name; returns 404 if not found, 400 if invalid."
+//    )
+//    @PutMapping
+//    public ResponseEntity<ApiResponse<ShipperProjectResponseDTO>> update(
+//            @Valid @RequestBody ShipperProjectUpdateRequestDTO requestDTO) {
+//        log.info("Request update : {}", requestDTO);
+//        var updated = service.update(requestDTO);
+//        return ResponseUtil.ok(updated, "Project updated successfully");
+//    }
 
     @Operation(
         summary = "Delete a project by projectId and return remaining projects for the same user"
