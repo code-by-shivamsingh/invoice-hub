@@ -1,6 +1,9 @@
 package com.jokati.invoice.service;
 
-import static com.jokati.invoice.constants.BillingStatusConstants.*;
+import static com.jokati.invoice.constants.BillingStatusConstants.MANUALLY_ACCEPTED;
+import static com.jokati.invoice.constants.BillingStatusConstants.MANUALLY_REJECTED;
+import static com.jokati.invoice.constants.BillingStatusConstants.manualAcceptedStatus;
+import static com.jokati.invoice.constants.BillingStatusConstants.manualRejectedStatus;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

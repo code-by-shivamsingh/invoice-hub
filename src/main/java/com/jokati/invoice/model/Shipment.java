@@ -4,8 +4,6 @@ package com.jokati.invoice.model;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import com.jokati.invoice.dto.ChargesDTO;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;

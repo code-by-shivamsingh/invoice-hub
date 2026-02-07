@@ -1,6 +1,14 @@
 
 package com.jokati.invoice.service;
 
+import static com.jokati.invoice.constants.BillingStatusConstants.ACCEPTED;
+import static com.jokati.invoice.constants.BillingStatusConstants.COLOR_ERROR;
+import static com.jokati.invoice.constants.BillingStatusConstants.COLOR_SUCCESS;
+import static com.jokati.invoice.constants.BillingStatusConstants.COLOR_WARNING;
+import static com.jokati.invoice.constants.BillingStatusConstants.CORRECT_BILLING;
+import static com.jokati.invoice.constants.BillingStatusConstants.INCORRECT_BILLING;
+import static com.jokati.invoice.constants.BillingStatusConstants.TOLERANCE_ACCEPTED;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -19,8 +27,6 @@ import com.jokati.invoice.model.ShipmentItemDocument;
 import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.repository.InvoiceRepository;
 import com.jokati.invoice.service.ShipmentSummaryService.SummaryInitResult;
-import static com.jokati.invoice.constants.BillingStatusConstants.*;
-
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -8,8 +8,6 @@ import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import jakarta.annotation.Nullable;
-
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -22,6 +20,7 @@ import com.jokati.invoice.exception.ApiException;
 import com.jokati.invoice.model.EmailTemplate;
 import com.jokati.invoice.repository.EmailTemplateRepository;
 
+import jakarta.annotation.Nullable;
 import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
 

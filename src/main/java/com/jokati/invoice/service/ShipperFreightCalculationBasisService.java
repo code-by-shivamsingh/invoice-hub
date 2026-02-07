@@ -11,16 +11,13 @@ import java.util.Optional;
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.jokati.invoice.dto.ShipperFreightCalculationBasisRequestDTO;
-import com.jokati.invoice.dto.ShipperFreightCalculationBasisResponseDTO;
 import com.jokati.invoice.model.ShipperFreightCalculationBasis;
 import com.jokati.invoice.repository.ShipperFreightCalculationBasisRepository;
 
 import lombok.RequiredArgsConstructor;
-
-import org.bson.types.ObjectId;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor

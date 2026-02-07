@@ -1,12 +1,13 @@
 package com.jokati.invoice.controller;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.jokati.invoice.common.ApiResponse;
-import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.ManualDecisionRequest;
-import com.jokati.invoice.model.StatusInfo;
 import com.jokati.invoice.service.ManualInvoiceDecisionService;
 
 import jakarta.validation.Valid;

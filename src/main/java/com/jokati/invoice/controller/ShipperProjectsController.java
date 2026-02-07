@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,7 +19,6 @@ import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
 import com.jokati.invoice.dto.ShipperProjectRequestDTO;
 import com.jokati.invoice.dto.ShipperProjectResponseDTO;
-import com.jokati.invoice.dto.ShipperProjectUpdateRequestDTO;
 import com.jokati.invoice.service.ShipperProjectService;
 
 import io.swagger.v3.oas.annotations.Operation;

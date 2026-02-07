@@ -1,6 +1,8 @@
 
 package com.jokati.invoice.service;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -13,8 +15,6 @@ import com.jokati.invoice.model.EmailTemplate;
 import com.jokati.invoice.repository.EmailTemplateRepository;
 
 import lombok.RequiredArgsConstructor;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
