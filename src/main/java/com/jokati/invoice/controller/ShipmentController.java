@@ -61,29 +61,18 @@ public class ShipmentController {
         ShipmentSaveResponseDTO response = service.saveBatch(request);
         return ResponseUtil.okObject(response, "Shipment data saved successfully");
     }
-
+    
+    
 //    @Operation(summary = "Delete shipment data by projectId")
-//    @DeleteMapping
+//    @DeleteMapping(params = "projectId")
 //    public ResponseEntity<ApiResponse<Object>> deleteShipmentData(@RequestParam @NotBlank String projectId) {
 //        final String pid = TextSanitizer.normalizeId(projectId);
 //
-//        log.info("DELETE /api/v1/shipment projectId={}", pid);
+//        log.info("DELETE /api/v1/shipment (delete all) projectId={}", pid);
 //
 //        service.deleteByProjectId(pid);
 //        return ResponseUtil.okEmpty("Shipment data deleted successfully");
 //    }
-    
-    
-    @Operation(summary = "Delete shipment data by projectId")
-    @DeleteMapping(params = "projectId")
-    public ResponseEntity<ApiResponse<Object>> deleteShipmentData(@RequestParam @NotBlank String projectId) {
-        final String pid = TextSanitizer.normalizeId(projectId);
-
-        log.info("DELETE /api/v1/shipment (delete all) projectId={}", pid);
-
-        service.deleteByProjectId(pid);
-        return ResponseUtil.okEmpty("Shipment data deleted successfully");
-    }
 
     @Operation(summary = "Delete a shipment item by projectId, shipmentId and id")
     @DeleteMapping(params = { "projectId", "shipmentId", "id", "userId" })
