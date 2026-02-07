@@ -1,8 +1,9 @@
-
 package com.jokati.invoice.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.jokati.invoice.util.TextSanitizer;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -25,10 +26,10 @@ public class ShipmentItemRequestDTO {
     private String idLower;
 
     @JsonProperty("ShipmentId")
-    private String shipmentId;     // keep newline if present
+    private String shipmentId;
 
     @JsonProperty("ShipmentDate")
-    private String shipmentDate;   // keep "yyyy-M-d" string
+    private String shipmentDate;
 
     @JsonProperty("ZipCodeShipper")
     private String zipCodeShipper;
@@ -203,4 +204,14 @@ public class ShipmentItemRequestDTO {
 
     @JsonProperty("undefined")
     private String undefined;
+
+    /**
+     * ✅ IMPORTANT:
+     * Incoming JSON uses "ShipmentId" (PascalCase).
+     * So the setter MUST be bound to "ShipmentId", not "shipmentId".
+     */
+    @JsonSetter("ShipmentId")
+    public void setShipmentId(String shipmentId) {
+        this.shipmentId = TextSanitizer.normalizeId(shipmentId);
+    }
 }

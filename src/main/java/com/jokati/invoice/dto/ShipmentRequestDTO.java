@@ -1,9 +1,10 @@
-
 package com.jokati.invoice.dto;
 
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.jokati.invoice.util.TextSanitizer;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -27,7 +28,7 @@ public class ShipmentRequestDTO {
     private String projectId;
 
     @Schema(example = "692af2fe34df801237c8fdd1")
-    private String carrierProjectId; // <- NEW: top-level
+    private String carrierProjectId; // <- top-level
 
     @NotNull
     @Size(min = 1)
@@ -37,4 +38,15 @@ public class ShipmentRequestDTO {
     @Builder.Default
     @Schema(description = "Append (true) or replace (false) items", example = "true")
     private boolean append = true;
+
+    // ✅ sanitize on JSON deserialization
+    @JsonSetter("projectId")
+    public void setProjectId(String projectId) {
+        this.projectId = TextSanitizer.normalizeId(projectId);
+    }
+
+    @JsonSetter("carrierProjectId")
+    public void setCarrierProjectId(String carrierProjectId) {
+        this.carrierProjectId = TextSanitizer.normalizeId(carrierProjectId);
+    }
 }

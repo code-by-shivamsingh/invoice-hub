@@ -1,4 +1,3 @@
-
 package com.jokati.invoice.service;
 
 import java.time.LocalDate;
@@ -161,10 +160,8 @@ public class ShipmentSummaryService {
             log.error("getSummaryInit: error -> {}", ex.getMessage(), ex);
             return null;
         }
-    }  
-    
-  
-    
+    }
+
     public SummaryInitResult getSummaryInitWithMessage(String projectId) {
         try {
             log.info("getSummaryInitWithMessage: projectId={}", projectId);
@@ -177,28 +174,23 @@ public class ShipmentSummaryService {
 
             var project = projectOpt.get();
 
-
             List<ShipmentItemDocument> rawRows =
                     Optional.ofNullable(project.getShipmentData())
                             .orElseGet(ArrayList::new);
 
-           
             Map<String, Object> freightBasis        = fetchFreightBasis(projectId);
             Map<String, Object> rates               = fetchRates(projectId);
             Map<String, Object> extraCosts          = fetchExtraCosts(projectId);
             Map<String, Object> dieselFloaterMatrix = fetchDieselFloaterMatrix();
 
-           
             List<ShipmentItemDocument> calculatedRows = rawRows.stream()
                     .map(r -> calculateRow(r, freightBasis, rates, extraCosts, dieselFloaterMatrix))
                     .collect(Collectors.toList());
-
 
             List<ShipmentItemDocument> filteredRows = calculatedRows.stream()
                     .filter(item -> item.getMessage() != null && !item.getMessage().trim().isEmpty())
                     .collect(Collectors.toList());
 
-            
             Map<String, List<ShipmentItemDocument>> preparedByCountry =
                     filteredRows.stream()
                             .collect(Collectors.groupingBy(
@@ -206,7 +198,6 @@ public class ShipmentSummaryService {
                                     LinkedHashMap::new,
                                     Collectors.toList()
                             ));
-
 
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
                     createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
@@ -230,9 +221,6 @@ public class ShipmentSummaryService {
         }
     }
 
-
-
-
     /**
      * Prepare consolidated summary filtered to one ShipmentId.
      *
@@ -243,8 +231,12 @@ public class ShipmentSummaryService {
     public SummaryInitResult getSummaryByShipmentId(ObjectId projectId, String shipmentId) {
         try {
             final String projectIdStr = projectId.toHexString();
-            final String sid = shipmentId == null ? null : shipmentId.trim();
-            log.info("getSummaryByShipmentId: projectId={} shipmentId={}", projectIdStr, sid);
+
+            // ✅ FIX: normalize incoming shipmentId to remove hidden newlines/spaces
+            final String sid = normalizeShipmentId(shipmentId);
+
+            log.info("getSummaryByShipmentId: projectId={} shipmentId(raw)='{}' normalized='{}'",
+                    projectIdStr, shipmentId, sid);
 
             if (sid == null || sid.isBlank()) {
                 log.warn("getSummaryByShipmentId: blank shipmentId");
@@ -261,8 +253,9 @@ public class ShipmentSummaryService {
             List<ShipmentItemDocument> rawRows =
                     Optional.ofNullable(project.getShipmentData()).orElseGet(ArrayList::new);
 
+            // ✅ FIX: normalize DB shipmentId too before comparison
             List<ShipmentItemDocument> filteredRows = rawRows.stream()
-                    .filter(r -> sid.equals(r.getShipmentId()))
+                    .filter(r -> sid.equals(normalizeShipmentId(r.getShipmentId())))
                     .collect(Collectors.toList());
 
             if (filteredRows.isEmpty()) {
@@ -301,6 +294,39 @@ public class ShipmentSummaryService {
             log.error("getSummaryByShipmentId: error -> {}", ex.getMessage(), ex);
             return null;
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // FIX helper (added)
+    // ---------------------------------------------------------------------
+
+    /**
+     * ✅ Normalizes shipmentId to avoid mismatch due to hidden whitespace/newlines/NBSP.
+     * Example DB value might be "\n2138710242" while input is "2138710242".
+     * This method removes all whitespace and NBSP.
+     *
+     * NOTE: This is not logic change; it's only making equality work as intended.
+     */
+    private static String normalizeShipmentId(Object shipmentId) {
+        if (shipmentId == null) return null;
+
+        String s = String.valueOf(shipmentId);
+
+        // strip() is Java 11+; removes Unicode whitespace at ends
+        try {
+            s = s.strip();
+        } catch (Throwable t) {
+            // fallback for older Java
+            s = s.trim();
+        }
+
+        // remove NBSP
+        s = s.replace("\u00A0", "");
+
+        // remove all remaining whitespace (space/tab/newline)
+        s = s.replaceAll("\\s+", "");
+
+        return s.isEmpty() ? null : s;
     }
 
     // ---------------------------------------------------------------------
@@ -430,7 +456,7 @@ public class ShipmentSummaryService {
             Map<String, Object> extraCosts,
             Map<String, Object> dieselFloaterMatrix
     ) {
-    	log.info("dieselFloaterMatrix is {}",dieselFloaterMatrix.isEmpty());
+        log.info("dieselFloaterMatrix is {}", dieselFloaterMatrix.isEmpty());
         Map<String, Map<String, Double>> sumsPerShipment = new LinkedHashMap<>();
         Map<String, Integer> lastIndexPerShipment = new LinkedHashMap<>();
         List<ShipmentItemDocument> out = new ArrayList<>();
@@ -454,9 +480,9 @@ public class ShipmentSummaryService {
         }
 
         for (int i = 0; i < consolidatedShipmentIds.size(); i++) {
-        	
+
             String sid = consolidatedShipmentIds.get(i);
-            log.info("consolidated shipment id " +sid);
+            log.info("consolidated shipment id " + sid);
             int lastIndex = lastIndexPerShipment.getOrDefault(sid, -1);
             if (lastIndex < 0) continue;
 
@@ -524,7 +550,7 @@ public class ShipmentSummaryService {
 
             if (country.isBlank()) country = "INT";
             sumRow = calculateRow(
-            		sumRow,
+                    sumRow,
                     Map.of(base.getCountry(), Map.of("IsConsolidated", true)),
                     Collections.emptyMap(),
                     Map.of(country, extraCosts.get(country)),
@@ -632,7 +658,7 @@ public class ShipmentSummaryService {
             Map<String, Object> dieselFloaterMatrix
     ) {
         try {
-        	log.info("dieselFloaterMatrix value under {}",dieselFloaterMatrix.isEmpty());
+            log.info("dieselFloaterMatrix value under {}", dieselFloaterMatrix.isEmpty());
             // Country normalize
             String country = safeString(row.getCountry());
             if (country.isBlank()) country = "INT";
@@ -851,12 +877,10 @@ public class ShipmentSummaryService {
             row.setExtraCostsTotalPrice(totalExtraCosts);
             row.setTotalPrice(totalRowPrice);
 
-         // DO NOT RESET MESSAGE IF ERROR EXISTS
-
+            // DO NOT RESET MESSAGE IF ERROR EXISTS
             if (row.getErrorType() == null || row.getErrorType() == 0) {
                 row.setMessage("");
             }
-
 
             log.debug("calculateRow: sid={} country={} net={} toll={} diesel={} extras={} total={}",
                     safeString(row.getShipmentId()), country, row.getPrice(), row.getToll(), row.getDiesel(),
@@ -898,100 +922,77 @@ public class ShipmentSummaryService {
 
         return new ArrayList<>(byTerm.values());
     }
-    
 
-/**
- * Extract a Term spec (term, unit, value) from your flexible extraCosts map:
- *  extraCosts.get(country).get("Base") -> List of items with {"Term","Value","Unit"}.
- *
- * @param extraCosts full extra-costs catalog map (country nodes)
- * @param country    country code (e.g., "DE")
- * @param term       term to find (e.g., "Maut", "Dieselzuschlag")
- * @return ExtraTermSpec or null if not found
- */
-private ExtraTermSpec findExtraTerm(Map<String, Object> extraCosts, String country, String term) {
-    if (extraCosts == null || term == null) return null;
+    /**
+     * Extract a Term spec (term, unit, value) from your flexible extraCosts map:
+     *  extraCosts.get(country).get("Base") -> List of items with {"Term","Value","Unit"}.
+     */
+    private ExtraTermSpec findExtraTerm(Map<String, Object> extraCosts, String country, String term) {
+        if (extraCosts == null || term == null) return null;
 
-    // Resolve the country node (with INT fallback if needed)
-    Map<String, Object> countryNode = getCountryNode(extraCosts, country);
-    if (countryNode.isEmpty()) return null;
+        Map<String, Object> countryNode = getCountryNode(extraCosts, country);
+        if (countryNode.isEmpty()) return null;
 
-    // Base list is the primary source of extra terms
-    List<Map<String, Object>> base = getList(countryNode.get("Base"));
-    for (Map<String, Object> item : base) {
-        String t = safeString(item.get("Term"));
-        if (term.equals(t)) {
-            double value = toDouble(item.get("Value"));
-            String unit  = safeString(item.getOrDefault("Unit", "€"));
-            return new ExtraTermSpec(term, unit, value);
+        List<Map<String, Object>> base = getList(countryNode.get("Base"));
+        for (Map<String, Object> item : base) {
+            String t = safeString(item.get("Term"));
+            if (term.equals(t)) {
+                double value = toDouble(item.get("Value"));
+                String unit  = safeString(item.getOrDefault("Unit", "€"));
+                return new ExtraTermSpec(term, unit, value);
+            }
+        }
+
+        List<Map<String, Object>> additional = getList(countryNode.get("Additional"));
+        for (Map<String, Object> item : additional) {
+            String t = safeString(item.get("Term"));
+            if (term.equals(t)) {
+                double value = toDouble(item.get("Value"));
+                String unit  = safeString(item.getOrDefault("Unit", "€"));
+                return new ExtraTermSpec(term, unit, value);
+            }
+        }
+
+        Map<String, Object> intNode = getCountryNode(extraCosts, "INT");
+        List<Map<String, Object>> intBase = getList(intNode.get("Base"));
+        for (Map<String, Object> item : intBase) {
+            String t = safeString(item.get("Term"));
+            if (term.equals(t)) {
+                double value = toDouble(item.get("Value"));
+                String unit  = safeString(item.getOrDefault("Unit", "€"));
+                return new ExtraTermSpec(term, unit, value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Read a numeric property from ShipmentItemDocument by TS property name.
+     * Used during consolidation sums (SUM_PROPERTIES).
+     */
+    private static double getNumeric(ShipmentItemDocument row, String prop) {
+        switch (prop) {
+            case "PalletCount":
+                return row.getPalletCount() == null ? 0.0 : row.getPalletCount();
+            case "EffectiveWeight":
+                return row.getEffectiveWeight() == null ? 0.0 : row.getEffectiveWeight();
+            case "LoadingMeters":
+                return row.getLoadingMeters() == null ? 0.0 : row.getLoadingMeters();
+            case "WeightByLoadingMeters":
+                return row.getWeightByLoadingMeters() == null ? 0.0 : row.getWeightByLoadingMeters();
+            case "WeightByCubicMeters":
+                return row.getWeightByCubicMeters() == null ? 0.0 : row.getWeightByCubicMeters();
+            case "MinimumWeight":
+                return row.getMinimumWeight() == null ? 0.0 : row.getMinimumWeight();
+            case "ChargeableWeight":
+                return row.getChargeableWeight() == null ? 0.0 : row.getChargeableWeight();
+            case "Price":
+                return row.getPrice() == null ? 0.0 : row.getPrice();
+            default:
+                return 0.0;
         }
     }
-
-    // Optional: also look in "Additional" list if present
-    List<Map<String, Object>> additional = getList(countryNode.get("Additional"));
-    for (Map<String, Object> item : additional) {
-        String t = safeString(item.get("Term"));
-        if (term.equals(t)) {
-            double value = toDouble(item.get("Value"));
-            String unit  = safeString(item.getOrDefault("Unit", "€"));
-            return new ExtraTermSpec(term, unit, value);
-        }
-    }
-
-    // Optional INT fallback if not already covered by getCountryNode
-    Map<String, Object> intNode = getCountryNode(extraCosts, "INT");
-    List<Map<String, Object>> intBase = getList(intNode.get("Base"));
-    for (Map<String, Object> item : intBase) {
-        String t = safeString(item.get("Term"));
-        if (term.equals(t)) {
-            double value = toDouble(item.get("Value"));
-            String unit  = safeString(item.getOrDefault("Unit", "€"));
-            return new ExtraTermSpec(term, unit, value);
-        }
-    }
-
-    return null;
-}
-
-
-/**
- * Read a numeric property from ShipmentItemDocument by TS property name.
- * Used during consolidation sums (SUM_PROPERTIES).
- *
- * Supported props (parity with TS):
- *  - "PalletCount"
- *  - "EffectiveWeight"
- *  - "LoadingMeters"
- *  - "WeightByLoadingMeters"
- *  - "WeightByCubicMeters"
- *  - "MinimumWeight"
- *  - "ChargeableWeight"
- *  - "Price"
- *
- * Unknown keys return 0.0
- */
-private static double getNumeric(ShipmentItemDocument row, String prop) {
-    switch (prop) {
-        case "PalletCount":
-            return row.getPalletCount() == null ? 0.0 : row.getPalletCount();
-        case "EffectiveWeight":
-            return row.getEffectiveWeight() == null ? 0.0 : row.getEffectiveWeight();
-        case "LoadingMeters":
-            return row.getLoadingMeters() == null ? 0.0 : row.getLoadingMeters();
-        case "WeightByLoadingMeters":
-            return row.getWeightByLoadingMeters() == null ? 0.0 : row.getWeightByLoadingMeters();
-        case "WeightByCubicMeters":
-            return row.getWeightByCubicMeters() == null ? 0.0 : row.getWeightByCubicMeters();
-        case "MinimumWeight":
-            return row.getMinimumWeight() == null ? 0.0 : row.getMinimumWeight();
-        case "ChargeableWeight":
-            return row.getChargeableWeight() == null ? 0.0 : row.getChargeableWeight();
-        case "Price":
-            return row.getPrice() == null ? 0.0 : row.getPrice();
-        default:
-            return 0.0;
-    }
-}
 
     private void putTerm(Map<String, ExtraTermSpec> byTerm, Map<String, Object> m) {
         String term = safeString(m.get("Term"));
@@ -1022,7 +1023,6 @@ private static double getNumeric(ShipmentItemDocument row, String prop) {
         Map<String, Object> countryNode = getCountryNode(extraCosts, country);
         if (countryNode.isEmpty()) return null;
 
-        // Preferred: a "DieselFloater" object under country
         Object dfObj = countryNode.get("DieselFloater");
         if (dfObj instanceof Map<?, ?> df) {
             String source = safeString(df.get("DieselFloaterSource"));
@@ -1033,7 +1033,6 @@ private static double getNumeric(ShipmentItemDocument row, String prop) {
             }
         }
 
-        // Alternative: check inside Base entries for a DieselFloater child
         List<Map<String, Object>> base = getList(countryNode.get("Base"));
         for (Map<String, Object> item : base) {
             if ("Dieselzuschlag".equals(safeString(item.get("Term")))) {
@@ -1070,18 +1069,10 @@ private static double getNumeric(ShipmentItemDocument row, String prop) {
         return brackets;
     }
 
-
-/**
- * Helper to accumulate numeric values during consolidation.
- * Adds delta to sums[prop], initializing if absent.
- *
- * @param sums  map of property -> accumulated value
- * @param prop  property name (e.g., "PalletCount", "Price")
- * @param delta value to add
- */
-private static void addNumeric(Map<String, Double> sums, String prop, double delta) {
-    sums.put(prop, sums.getOrDefault(prop, 0.0) + delta);
-}
+    /** Helper to accumulate numeric values during consolidation. */
+    private static void addNumeric(Map<String, Double> sums, String prop, double delta) {
+        sums.put(prop, sums.getOrDefault(prop, 0.0) + delta);
+    }
 
     /**
      * Diesel floater matrix lookup:
@@ -1122,7 +1113,7 @@ private static void addNumeric(Map<String, Double> sums, String prop, double del
         return value;
     }
 
-    /** Map the matrix value to a percent using brackets: first bracket with matrixValue <= threshold. */
+    /** Map the matrix value to a percent using brackets. */
     private double getDieselFloaterPercent(List<Map<String, Double>> brackets, double matrixValue) {
         if (brackets == null || brackets.isEmpty()) return 0.0;
         double matchedPercent = 0.0;
@@ -1147,9 +1138,6 @@ private static void addNumeric(Map<String, Double> sums, String prop, double del
     private static double opt(Double d) { return d == null ? 0.0 : d; }
     private static int    optInt(Integer i) { return i == null ? 0 : i; }
     private static double safeDouble(Double d) { return d == null ? 0.0 : d; }
-    
-   
-   
 
     private void setError(ShipmentItemDocument row, String msg, int code) {
         row.setMessage(msg);
@@ -1161,103 +1149,93 @@ private static void addNumeric(Map<String, Double> sums, String prop, double del
         row.setTotalPrice(0.0);
     }
 
-   
-    
+    // ---------- Safe coercion helpers ----------
 
- // ---------- Safe coercion helpers ----------
+    /** Coerce an Object to int safely. Supports Number and String; otherwise 0. */
+    private static int safeInt(Object o) {
+        if (o == null) return 0;
+        if (o instanceof Number n) return n.intValue();
+        if (o instanceof String s) {
+            try { return Integer.parseInt(s.trim()); } catch (Exception ignore) { return 0; }
+        }
+        return 0;
+    }
 
- /** Coerce an Object to int safely. Supports Number and String; otherwise 0. */
- private static int safeInt(Object o) {
-     if (o == null) return 0;
-     if (o instanceof Number n) return n.intValue();
-     if (o instanceof String s) {
-         try { return Integer.parseInt(s.trim()); } catch (Exception ignore) { return 0; }
-     }
-     return 0;
- }
+    /** Coerce an Object to double safely. Supports Number and String; otherwise 0.0. */
+    private static double safeDouble(Object o) {
+        if (o == null) return 0.0;
+        if (o instanceof Number n) return n.doubleValue();
+        if (o instanceof String s) {
+            try { return Double.parseDouble(s.trim()); } catch (Exception ignore) { return 0.0; }
+        }
+        return 0.0;
+    }
 
- /** Coerce an Object to double safely. Supports Number and String; otherwise 0.0. */
- private static double safeDouble(Object o) {
-     if (o == null) return 0.0;
-     if (o instanceof Number n) return n.doubleValue();
-     if (o instanceof String s) {
-         try { return Double.parseDouble(s.trim()); } catch (Exception ignore) { return 0.0; }
-     }
-     return 0.0;
- }
+    /** Existing overload for Integer (keep this if already present). */
+    private static int safeInt(Integer i) { return i == null ? 0 : i; }
 
- /** Existing overload for Integer (keep this if already present). */
- private static int safeInt(Integer i) { return i == null ? 0 : i; }
+    // ---------- Collections / map readers ----------
 
- // ---------- Collections / map readers ----------
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> getList(Object o) {
+        if (o instanceof List<?>) {
+            List<?> raw = (List<?>) o;
+            if (!raw.isEmpty() && !(raw.get(0) instanceof Map)) {
+                return List.of();
+            }
+            return (List<Map<String, Object>>) raw;
+        }
+        return List.of();
+    }
 
- @SuppressWarnings("unchecked")
- private List<Map<String, Object>> getList(Object o) {
-     if (o instanceof List<?>) {
-         List<?> raw = (List<?>) o;
-         if (!raw.isEmpty() && !(raw.get(0) instanceof Map)) {
-             return List.of();
-         }
-         return (List<Map<String, Object>>) raw;
-     }
-     return List.of();
- }
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getCountryNode(Map<String, Object> dict, String country) {
+        if (dict == null || dict.isEmpty()) return new HashMap<>();
+        Object node = dict.get(country);
+        if (node instanceof Map) return (Map<String, Object>) node;
+        Object intl = dict.get("INT");
+        return (intl instanceof Map) ? (Map<String, Object>) intl : new HashMap<>();
+    }
 
- @SuppressWarnings("unchecked")
- private Map<String, Object> getCountryNode(Map<String, Object> dict, String country) {
-     if (dict == null || dict.isEmpty()) return new HashMap<>();
-     Object node = dict.get(country);
-     if (node instanceof Map) return (Map<String, Object>) node;
-     Object intl = dict.get("INT");
-     return (intl instanceof Map) ? (Map<String, Object>) intl : new HashMap<>();
- }
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getNode(Map<String, Object> parent, String key) {
+        if (parent == null) return new HashMap<>();
+        Object node = parent.get(key);
+        return (node instanceof Map) ? (Map<String, Object>) node : new HashMap<>();
+    }
 
- @SuppressWarnings("unchecked")
- private Map<String, Object> getNode(Map<String, Object> parent, String key) {
-     if (parent == null) return new HashMap<>();
-     Object node = parent.get(key);
-     return (node instanceof Map) ? (Map<String, Object>) node : new HashMap<>();
- }
+    private Map<String, Object> firstNonNull(Map<String, Object> a, Map<String, Object> b) {
+        return (a != null && !a.isEmpty()) ? a : (b != null ? b : new HashMap<>());
+    }
 
- private Map<String, Object> firstNonNull(Map<String, Object> a, Map<String, Object> b) {
-     return (a != null && !a.isEmpty()) ? a : (b != null ? b : new HashMap<>());
- }
+    // ---------- String / number utils ----------
 
- // ---------- String / number utils ----------
+    private static String safeString(Object o) { return o == null ? "" : String.valueOf(o).trim(); }
+    private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+    private static boolean isZero(Double d) { return d == null || d.doubleValue() == 0.0; }
 
- private static String safeString(Object o) { return o == null ? "" : String.valueOf(o).trim(); }
- private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
- private static boolean isZero(Double d) { return d == null || d.doubleValue() == 0.0; }
+    private static double toDouble(Object v) {
+        if (v == null) return 0.0;
+        if (v instanceof Number n) return n.doubleValue();
+        try { return Double.parseDouble(String.valueOf(v)); } catch (Exception ignore) { return 0.0; }
+    }
 
- private static double toDouble(Object v) {
-     if (v == null) return 0.0;
-     if (v instanceof Number n) return n.doubleValue();
-     try { return Double.parseDouble(String.valueOf(v)); } catch (Exception ignore) { return 0.0; }
- }
+    private static double toFixed(double value, int digits) {
+        double m = Math.pow(10.0, digits);
+        return Math.round(value * m) / m;
+    }
 
- private static double toFixed(double value, int digits) {
-     double m = Math.pow(10.0, digits);
-     return Math.round(value * m) / m;
- }
+    private static double round2(double v) { return toFixed(v, 2); }
 
- private static double round2(double v) { return toFixed(v, 2); }
-
-
-/**
- * Resolve stack factor consistently with TS logic:
- * - If not stackable, return 1
- * - If stackFactor is null or < 1, return 1
- * - Otherwise return the given stackFactor (already integer, TS would floor)
- */
-private int resolveRowStackFactor(Integer stackFactor, boolean stackable) {
-    if (!stackable) return 1;
-    int sf = (stackFactor == null) ? 1 : stackFactor;
-    if (sf < 1) return 1;
-    return sf;
-}
-
-
-
+    /**
+     * Resolve stack factor consistently with TS logic.
+     */
+    private int resolveRowStackFactor(Integer stackFactor, boolean stackable) {
+        if (!stackable) return 1;
+        int sf = (stackFactor == null) ? 1 : stackFactor;
+        if (sf < 1) return 1;
+        return sf;
+    }
 
     private double computeMinimumWeight(Map<String, Object> minWeight,
                                         String packagingType,
@@ -1378,7 +1356,7 @@ private int resolveRowStackFactor(Integer stackFactor, boolean stackable) {
     private double getPriceForZone(Map<String, Object> weightRow, String zoneId, String rateType, double normalizedChargeable) {
         Map<String, Object> prices = getNode(weightRow, "Prices");
         double unitPrice = toDouble(prices.get(zoneId));
-//        return normalizedChargeable * unitPrice;
+        // return normalizedChargeable * unitPrice;
         return unitPrice;
     }
 
@@ -1414,9 +1392,9 @@ private int resolveRowStackFactor(Integer stackFactor, boolean stackable) {
 
     @Data
     public static class SummaryInitResult {
-        private ShipmentTotalSummary                           shipmentTotalSummary;
-        private Map<String, List<ShipmentItemDocument>>        consolidatedShipmentData;
-        private Map<String, Object>                            fetchedShipperExtraCosts;
-        private Map<String, Object>                            dieselFloaterMatrix;
+        private ShipmentTotalSummary                    shipmentTotalSummary;
+        private Map<String, List<ShipmentItemDocument>> consolidatedShipmentData;
+        private Map<String, Object>                     fetchedShipperExtraCosts;
+        private Map<String, Object>                     dieselFloaterMatrix;
     }
 }
