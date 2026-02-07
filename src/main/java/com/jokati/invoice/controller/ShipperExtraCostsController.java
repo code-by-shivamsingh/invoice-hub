@@ -1,6 +1,8 @@
 
 package com.jokati.invoice.controller;
 
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -29,124 +31,142 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/shipper-extra-costs")
 @Tag(name = "Shipper Extra Costs API", description = "Manage shipper extra costs")
 public class ShipperExtraCostsController {
-    private static final Logger log = LoggerFactory.getLogger(ShipperExtraCostsController.class);
+	private static final Logger log = LoggerFactory.getLogger(ShipperExtraCostsController.class);
 
-    private final ShipperExtraCostsService service;
+	private final ShipperExtraCostsService service;
 
-    public ShipperExtraCostsController(ShipperExtraCostsService service) {
-        this.service = service;
-    }
+	public ShipperExtraCostsController(ShipperExtraCostsService service) {
+		this.service = service;
+	}
 
-    @Operation(summary = "Create shipper extra costs")
-    @PostMapping
-    public ResponseEntity<ApiResponse<Object>> create(@Valid @RequestBody ShipperExtraCostsRequestDTO request) {
-        log.info("Request create : {}", request);
+//    @Operation(summary = "Create shipper extra costs")
+//    @PostMapping
+//    public ResponseEntity<ApiResponse<Object>> create(@Valid @RequestBody ShipperExtraCostsRequestDTO request) {
+//        log.info("Request create : {}", request);
+//
+//        ShipperExtraCosts entity = toEntity(request);
+//        ShipperExtraCosts saved = service.save(entity);
+//
+//        return ResponseUtil.okObject(
+//                toResponseDTO(saved),
+//                "Extra costs saved successfully"
+//        );
+//    }
 
-        ShipperExtraCosts entity = toEntity(request);
-        ShipperExtraCosts saved = service.save(entity);
+	@Operation(summary = "Create shipper extra costs (append country if project exists)")
+	@PostMapping
+	public ResponseEntity<ApiResponse<Object>> create(@Valid @RequestBody ShipperExtraCostsRequestDTO request) {
+		log.info("Request create : {}", request);
 
-        return ResponseUtil.okObject(
-                toResponseDTO(saved),
-                "Extra costs saved successfully"
-        );
-    }
+		ShipperExtraCosts saved = service.createOrAppendSingleCountry(request);
 
-    @Operation(summary = "Update shipper extra costs")
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Object>> update(@PathVariable String id,
-                                                      @Valid @RequestBody ShipperExtraCostsRequestDTO request) {
-        log.info("Request update : id={}, request={}", id, request);
+		// Return ONLY the country from current request
+		Map<String, Object> filtered = service.filterExtraCostsForPostResponse(saved, request.getExtraCosts());
 
-        ShipperExtraCosts entity = toEntity(request);
-        ShipperExtraCosts updated = service.update(id, entity);
+		return ResponseUtil.okObject(toResponseDTO(saved, filtered), "Extra costs saved successfully");
+	}
 
-        return ResponseUtil.okObject(
-                toResponseDTO(updated),
-                "Extra costs updated successfully"
-        );
-    }
+	@Operation(summary = "Get shipper extra costs document by projectId and countryCode (filtered)")
+	@GetMapping("/country-cost-doc")
+	public ResponseEntity<ApiResponse<Object>> getCountryCostDocument(@RequestParam String projectId,
+			@RequestParam String countryCode) {
 
-    @Operation(summary = "Get shipper extra costs by ID")
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Object>> get(@PathVariable String id) {
-        log.info("Request get : {}", id);
+		log.info("Request get extra cost document projectId={}, countryCode={}", projectId, countryCode);
 
-        return service.findById(id)
-                .map(costs -> ResponseUtil.okObject(
-                        toResponseDTO(costs),
-                        "Extra costs fetched successfully"
-                ))
-                // Node-style: 200 OK with {} if invalid/missing
-                .orElse(ResponseUtil.okEmpty("OK"));
-    }
-    
-    @Operation(summary = "Get shipper extra costs by projectID")
-    @GetMapping("/projectid")
-    public ResponseEntity<ApiResponse<Object>> getShipperExtraCostByProjectId(@RequestParam String projectId) {
-        log.info("Request get Project Id : {}", projectId);
+		ShipperExtraCosts doc = service.getDocumentByProjectIdAndCountry(projectId, countryCode);
 
-        return service.findByProjectId(projectId)
-                .map(costs -> ResponseUtil.okObject(
-                        toResponseDTO(costs),
-                        "Extra costs fetched successfully"
-                ))
-                // Node-style: 200 OK with {} if invalid/missing
-                .orElse(ResponseUtil.okEmpty("OK"));
-    }
+		if (doc == null) {
+			// Node-style: 200 with {}
+			return ResponseUtil.okEmpty("OK");
+		}
 
-    @Operation(summary = "Delete shipper extra costs by ID")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String id) {
-        log.info("Request delete : {}", id);
-        service.delete(id);
-        // Return node-style {} with message in envelope
-        return ResponseUtil.okEmpty("Extra costs deleted successfully");
-    }
-    
-    @Operation(summary = "Get country list by projectId")
-    @GetMapping("/countries")
-    public ResponseEntity<ApiResponse<Object>> getCountries(@RequestParam String projectId) {
-        log.info("Request get countries projectId={}", projectId);
+		return ResponseUtil.okObject(toResponseDTO(doc), "Extra costs fetched successfully");
+	}
 
-        var countries = service.getCountriesByProjectId(projectId);
+	@Operation(summary = "Update shipper extra costs")
+	@PutMapping("/{id}")
+	public ResponseEntity<ApiResponse<Object>> update(@PathVariable String id,
+			@Valid @RequestBody ShipperExtraCostsRequestDTO request) {
+		log.info("Request update : id={}, request={}", id, request);
 
-        return ResponseUtil.okObject(countries, "Countries fetched successfully");
-    }
+		ShipperExtraCosts entity = toEntity(request);
+		ShipperExtraCosts updated = service.update(id, entity);
 
-    @Operation(summary = "Get shipper extra cost by projectId and countryCode")
-    @GetMapping("/country-cost")
-    public ResponseEntity<ApiResponse<Object>> getCountryCost(
-            @RequestParam String projectId,
-            @RequestParam(required = false) String countryCode) {
+		return ResponseUtil.okObject(toResponseDTO(updated), "Extra costs updated successfully");
+	}
 
-        log.info("Request get extra cost projectId={}, countryCode={}", projectId, countryCode);
+	@Operation(summary = "Get shipper extra costs by ID")
+	@GetMapping("/{id}")
+	public ResponseEntity<ApiResponse<Object>> get(@PathVariable String id) {
+		log.info("Request get : {}", id);
 
-        var cost = service.getExtraCostByCountry(projectId, countryCode);
-        
-        if (cost == null) {
-	        return ResponseUtil.okEmpty("No Extra cost found");
-	    }
+		return service.findById(id)
+				.map(costs -> ResponseUtil.okObject(toResponseDTO(costs), "Extra costs fetched successfully"))
+				// Node-style: 200 OK with {} if invalid/missing
+				.orElse(ResponseUtil.okEmpty("OK"));
+	}
 
-        return ResponseUtil.okObject(cost, "Extra cost fetched successfully");
-    }
+	@Operation(summary = "Get shipper extra costs by projectID")
+	@GetMapping("/projectid")
+	public ResponseEntity<ApiResponse<Object>> getShipperExtraCostByProjectId(@RequestParam String projectId) {
+		log.info("Request get Project Id : {}", projectId);
 
+		return service.findByProjectId(projectId)
+				.map(costs -> ResponseUtil.okObject(toResponseDTO(costs), "Extra costs fetched successfully"))
+				// Node-style: 200 OK with {} if invalid/missing
+				.orElse(ResponseUtil.okEmpty("OK"));
+	}
 
+	@Operation(summary = "Delete shipper extra costs by ID")
+	@DeleteMapping("/{id}")
+	public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String id) {
+		log.info("Request delete : {}", id);
+		service.delete(id);
+		// Return node-style {} with message in envelope
+		return ResponseUtil.okEmpty("Extra costs deleted successfully");
+	}
 
+	@Operation(summary = "Get country list by projectId")
+	@GetMapping("/countries")
+	public ResponseEntity<ApiResponse<Object>> getCountries(@RequestParam String projectId) {
+		log.info("Request get countries projectId={}", projectId);
 
-    /* ---------- mapping helpers ---------- */
+		var countries = service.getCountriesByProjectId(projectId);
 
-    private ShipperExtraCosts toEntity(ShipperExtraCostsRequestDTO request) {
-        return ShipperExtraCosts.builder()
-                .projectId(request.getProjectId())
-                .extraCosts(request.getExtraCosts())
-                .build();
-    }
+		return ResponseUtil.okObject(countries, "Countries fetched successfully");
+	}
 
-    private ShipperExtraCostsResponseDTO toResponseDTO(ShipperExtraCosts entity) {
-        return ShipperExtraCostsResponseDTO.builder()
-                .id(entity.getId())
-                .projectId(entity.getProjectId())
-                .extraCosts(entity.getExtraCosts())
-                .build();
-    }
+	@Operation(summary = "Get shipper extra cost by projectId and countryCode")
+	@GetMapping("/country-cost")
+	public ResponseEntity<ApiResponse<Object>> getCountryCost(@RequestParam String projectId,
+			@RequestParam(required = false) String countryCode) {
+
+		log.info("Request get extra cost projectId={}, countryCode={}", projectId, countryCode);
+
+		var cost = service.getExtraCostByCountry(projectId, countryCode);
+
+		if (cost == null) {
+			return ResponseUtil.okEmpty("No Extra cost found");
+		}
+
+		return ResponseUtil.okObject(cost, "Extra cost fetched successfully");
+	}
+
+	/* ---------- mapping helpers ---------- */
+
+	private ShipperExtraCosts toEntity(ShipperExtraCostsRequestDTO request) {
+		return ShipperExtraCosts.builder().projectId(request.getProjectId()).extraCosts(request.getExtraCosts())
+				.build();
+	}
+
+	private ShipperExtraCostsResponseDTO toResponseDTO(ShipperExtraCosts entity) {
+		return ShipperExtraCostsResponseDTO.builder().id(entity.getId()).projectId(entity.getProjectId())
+				.extraCosts(entity.getExtraCosts()).build();
+	}
+
+	private ShipperExtraCostsResponseDTO toResponseDTO(ShipperExtraCosts entity, Map<String, Object> extraCosts) {
+		return ShipperExtraCostsResponseDTO.builder().id(entity.getId()).projectId(entity.getProjectId())
+				.extraCosts(extraCosts).build();
+	}
+
 }
