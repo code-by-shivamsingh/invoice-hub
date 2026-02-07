@@ -1,55 +1,54 @@
 package com.jokati.invoice.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
-import com.jokati.invoice.dto.CreateInvoiceCommunicationDTO;
-import com.jokati.invoice.model.InvoiceCarrierCommunication;
+import com.jokati.invoice.dto.InvoiceCommunicationMessageRequestDTO;
+import com.jokati.invoice.dto.InvoiceCommunicationResponseDTO;
 import com.jokati.invoice.service.InvoiceCommunicationService;
+import com.jokati.invoice.util.TextSanitizer;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Tag(name = "Invoice Carrier Communication")
 @RestController
 @RequestMapping("/api/v1/invoice-communications")
 @RequiredArgsConstructor
+@Slf4j
 public class InvoiceCommunicationController {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(InvoiceCommunicationController.class);
 
     private final InvoiceCommunicationService service;
 
-    @Operation(summary = "Send invoice to carrier and create communication")
+    @Operation(summary = "Send message (auto-create thread on first shipper message)")
     @PostMapping
-    public ResponseEntity<ApiResponse<Object>> create(
-            @Valid @RequestBody CreateInvoiceCommunicationDTO request) {
+    public ResponseEntity<ApiResponse<Object>> sendMessage(
+            @Valid @RequestBody InvoiceCommunicationMessageRequestDTO request) {
 
-        log.info("InvoiceCommunication create: companyId={}, invoiceId={}, carrierName={}",
-                request.getCompanyId(), request.getInvoiceId(), request.getCarrier());
+        log.info("InvoiceCommunication POST: invoiceId={}, senderType={}, senderId={}, senderName={}",
+                TextSanitizer.normalizeId(request.getInvoiceId()),
+                request.getSenderType(),
+                TextSanitizer.normalizeId(request.getSenderId()),
+                request.getSenderName());
 
-        InvoiceCarrierCommunication response = service.create(request);
-        return ResponseUtil.okObject(response, "Invoice sent to carrier successfully");
+        InvoiceCommunicationResponseDTO response = service.sendMessage(request);
+        return ResponseUtil.okObject(response, "Message sent successfully");
     }
 
-
-    @Operation(summary = "Get invoice-carrier communication by invoiceId")
+    @Operation(summary = "Get conversation by invoiceId (latest message first)")
     @GetMapping("/{invoiceId}")
-    public ResponseEntity<ApiResponse<Object>> getByInvoiceId(@PathVariable String invoiceId) {
-        log.info("InvoiceCommunication get: invoiceId={}", invoiceId);
-        InvoiceCarrierCommunication response = service.getByInvoiceId(invoiceId);
+    public ResponseEntity<ApiResponse<Object>> getByInvoiceId(@PathVariable @NotBlank String invoiceId) {
+
+        final String iid = TextSanitizer.normalizeId(invoiceId);
+        log.info("InvoiceCommunication GET: invoiceId={}", iid);
+
+        InvoiceCommunicationResponseDTO response = service.getByInvoiceId(iid);
         return ResponseUtil.okObject(response, "Invoice communication fetched successfully");
     }
 }
