@@ -70,6 +70,7 @@ public class Shipment {
 	@Valid
 	@NotNull
 	private Charges charges;
+	private Charges orderCharges;
 	
 	
 	private BigDecimal orderSurchargeTotal;

@@ -159,4 +159,57 @@ public class ShipmentService {
 
 		return ShipmentSaveResponseDTO.builder().shipmentData(responseItems).build();
 	}
+	
+	@Transactional
+	public ShipmentSaveResponseDTO deleteShipmentItem(String projectId, String shipmentId, String id, String userId) {
+
+	    // Log at service level too (useful for debugging/audit trails)
+	    log.info("deleteShipmentItem: projectId={}, shipmentId={}, id={}, userId={}",
+	            projectId, shipmentId, id, userId);
+
+	    ProjectShipmentDocument agg = repository.findByProjectId(projectId).orElseThrow(
+	            () -> new java.util.NoSuchElementException("Shipment data not found for projectId: " + projectId));
+
+	    if (agg.getShipmentData() == null || agg.getShipmentData().isEmpty()) {
+	        throw new java.util.NoSuchElementException("No shipment items found for projectId: " + projectId);
+	    }
+
+	    // Normalize shipmentId for safety (handles hidden whitespace/newlines)
+	    final String sid = com.jokati.invoice.util.TextSanitizer.normalizeId(shipmentId);
+	    final String itemId = com.jokati.invoice.util.TextSanitizer.trimUnicode(id);
+
+	    int before = agg.getShipmentData().size();
+
+	    // Remove only matching item: shipmentId + (idUpper OR idLower)
+	    boolean removed = agg.getShipmentData().removeIf(item -> {
+	        if (item == null) return false;
+
+	        String rowSid = com.jokati.invoice.util.TextSanitizer.normalizeId(item.getShipmentId());
+	        boolean shipmentMatched = sid != null && sid.equals(rowSid);
+
+	        boolean idMatched = itemId.equals(item.getIdUpper()) || itemId.equals(item.getIdLower());
+
+	        return shipmentMatched && idMatched;
+	    });
+
+	    if (!removed) {
+	        throw new java.util.NoSuchElementException(
+	                "Shipment item not found for projectId=" + projectId +
+	                ", shipmentId=" + shipmentId + ", id=" + id);
+	    }
+
+	    repository.save(agg);
+
+	    int after = agg.getShipmentData().size();
+	    log.info("deleteShipmentItem: removed=true, before={}, after={}, projectId={}, shipmentId={}, id={}",
+	            before, after, projectId, shipmentId, id);
+
+	    List<ShipmentItemResponseDTO> responseItems = agg.getShipmentData().stream()
+	            .map(ShipmentMapper::toResponse)
+	            .toList();
+
+	    return ShipmentSaveResponseDTO.builder()
+	            .shipmentData(responseItems)
+	            .build();
+	}
 }

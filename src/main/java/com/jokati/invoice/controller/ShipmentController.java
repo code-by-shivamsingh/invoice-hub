@@ -62,15 +62,48 @@ public class ShipmentController {
         return ResponseUtil.okObject(response, "Shipment data saved successfully");
     }
 
+//    @Operation(summary = "Delete shipment data by projectId")
+//    @DeleteMapping
+//    public ResponseEntity<ApiResponse<Object>> deleteShipmentData(@RequestParam @NotBlank String projectId) {
+//        final String pid = TextSanitizer.normalizeId(projectId);
+//
+//        log.info("DELETE /api/v1/shipment projectId={}", pid);
+//
+//        service.deleteByProjectId(pid);
+//        return ResponseUtil.okEmpty("Shipment data deleted successfully");
+//    }
+    
+    
     @Operation(summary = "Delete shipment data by projectId")
-    @DeleteMapping
+    @DeleteMapping(params = "projectId")
     public ResponseEntity<ApiResponse<Object>> deleteShipmentData(@RequestParam @NotBlank String projectId) {
         final String pid = TextSanitizer.normalizeId(projectId);
 
-        log.info("DELETE /api/v1/shipment projectId={}", pid);
+        log.info("DELETE /api/v1/shipment (delete all) projectId={}", pid);
 
         service.deleteByProjectId(pid);
         return ResponseUtil.okEmpty("Shipment data deleted successfully");
+    }
+
+    @Operation(summary = "Delete a shipment item by projectId, shipmentId and id")
+    @DeleteMapping(params = { "projectId", "shipmentId", "id", "userId" })
+    public ResponseEntity<ApiResponse<Object>> deleteShipmentItem(
+            @RequestParam @NotBlank String projectId,
+            @RequestParam @NotBlank String shipmentId,
+            @RequestParam @NotBlank String id,
+            @RequestParam @NotBlank String userId) {
+
+        final String pid = TextSanitizer.normalizeId(projectId);
+        final String sid = TextSanitizer.normalizeId(shipmentId);
+        final String itemId = TextSanitizer.trimUnicode(id);
+        final String uid = TextSanitizer.normalizeId(userId);
+
+        log.info("DELETE /api/v1/shipment (delete one item) projectId={}, shipmentId={}, id={}, userId={}",
+                pid, sid, itemId, uid);
+
+        ShipmentSaveResponseDTO response = service.deleteShipmentItem(pid, sid, itemId, uid);
+
+        return ResponseUtil.okObject(response, "Shipment item deleted successfully");
     }
 
     @Operation(summary = "Update shipment item by projectId, shipmentId and id")

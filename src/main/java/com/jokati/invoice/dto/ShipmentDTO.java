@@ -73,7 +73,7 @@ public class ShipmentDTO {
     @NotNull
     @Valid
     private ChargesDTO charges;
-    
+    private ChargesDTO orderCharges;
     private BigDecimal orderSurchargeTotal;
 
     @NotNull
