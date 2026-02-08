@@ -18,7 +18,7 @@ public class InvoiceCommunicationThreadDocument {
     private String id;
 
     @Indexed(unique = true)
-    private String invoiceId;
+    private String invoiceNo;
 
     // Header / participants
     private String companyId;      // shipper company/user id
@@ -41,7 +41,7 @@ public class InvoiceCommunicationThreadDocument {
     @Data
     public static class Message {
         private String messageId;   // UUID
-        private String text;
+        private String messageText;
         private Instant timestamp;
 
         private String senderId;

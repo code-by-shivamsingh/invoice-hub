@@ -3,6 +3,7 @@ package com.jokati.invoice.service;
 import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -41,11 +42,11 @@ public class InvoiceCommunicationService {
     @Transactional
     public InvoiceCommunicationResponseDTO sendMessage(InvoiceCommunicationMessageRequestDTO request) {
 
-        final String invoiceId = TextSanitizer.normalizeId(request.getInvoiceId());
+        final String invoiceNo = TextSanitizer.normalizeId(request.getInvoiceNo());
         final String senderId  = TextSanitizer.normalizeId(request.getSenderId());
         final String senderName = TextSanitizer.trimUnicode(request.getSenderName());
 
-        if (invoiceId == null || invoiceId.isBlank()) throw new IllegalArgumentException("invoiceId must not be blank");
+        if (invoiceNo == null || invoiceNo.isBlank()) throw new IllegalArgumentException("invoiceNo must not be blank");
         if (request.getMessageText() == null || request.getMessageText().isBlank()) throw new IllegalArgumentException("messageText must not be blank");
         if (senderId == null || senderId.isBlank()) throw new IllegalArgumentException("senderId must not be blank");
         if (senderName == null || senderName.isBlank()) throw new IllegalArgumentException("senderName must not be blank");
@@ -60,13 +61,13 @@ public class InvoiceCommunicationService {
         // Build message
         Message msg = new Message();
         msg.setMessageId(UUID.randomUUID().toString());
-        msg.setText(request.getMessageText().trim());
+        msg.setMessageText(request.getMessageText().trim());
         msg.setTimestamp(Instant.now());
         msg.setSenderId(senderId);
         msg.setSenderName(senderName);
         msg.setSenderType(senderType);
 
-        boolean exists = repository.existsByInvoiceId(invoiceId);
+        boolean exists = repository.existsByInvoiceNo(invoiceNo);
 
         // If thread doesn't exist, it MUST be created (auto-create on shipper first message)
         // We enforce required fields on first create.
@@ -77,21 +78,21 @@ public class InvoiceCommunicationService {
         if (!exists) {
             // Auto-create only when shipper sends first message (your rule)
             if (senderType != SenderType.SHIPPER) {
-                throw new NoSuchElementException("Thread not found for invoiceId=" + invoiceId + ". Shipper must initiate the thread first.");
+                throw new NoSuchElementException("Thread not found for invoiceNo=" + invoiceNo + ". Shipper must initiate the thread first.");
             }
             if (companyId == null || companyId.isBlank()) throw new IllegalArgumentException("companyId is required for first message");
             if (carrier == null || carrier.isBlank()) throw new IllegalArgumentException("carrier is required for first message");
 
-            log.info("InvoiceCommunication AUTO-CREATE: invoiceId={}, companyId={}, carrier={}, senderId={}, senderName={}",
-                    invoiceId, companyId, carrier, senderId, senderName);
+            log.info("InvoiceCommunication AUTO-CREATE: invoiceNo={}, companyId={}, carrier={}, senderId={}, senderName={}",
+                    invoiceNo, companyId, carrier, senderId, senderName);
         }
 
-        log.info("InvoiceCommunication SEND: invoiceId={}, senderType={}, senderId={}, msgId={}, threadExists={}",
-                invoiceId, senderType, senderId, msg.getMessageId(), exists);
+        log.info("InvoiceCommunication SEND: invoiceNo={}, senderType={}, senderId={}, msgId={}, threadExists={}",
+                invoiceNo, senderType, senderId, msg.getMessageId(), exists);
 
         // Atomic upsert + push message (latest first)
         Instant now = Instant.now();
-        Query q = Query.query(Criteria.where("invoiceId").is(invoiceId));
+        Query q = Query.query(Criteria.where("invoiceNo").is(invoiceNo));
 
         Update u = new Update()
                 .set("updatedAt", now)
@@ -99,7 +100,7 @@ public class InvoiceCommunicationService {
 
         // Only set these on insert (first create)
         if (!exists) {
-            u.setOnInsert("invoiceId", invoiceId)
+            u.setOnInsert("invoiceNo", invoiceNo)
              .setOnInsert("companyId", companyId)
              .setOnInsert("carrier", carrier)
              .setOnInsert("carrierEmail", carrierEmail)
@@ -117,8 +118,8 @@ public class InvoiceCommunicationService {
         mongoTemplate.upsert(q, u, InvoiceCommunicationThreadDocument.class);
 
         // Fetch updated thread
-        InvoiceCommunicationThreadDocument doc = repository.findByInvoiceId(invoiceId)
-                .orElseThrow(() -> new NoSuchElementException("Invoice communication not found for invoiceId=" + invoiceId));
+        InvoiceCommunicationThreadDocument doc = repository.findByInvoiceNo(invoiceNo)
+                .orElseThrow(() -> new NoSuchElementException("Invoice communication not found for invoiceId=" + invoiceNo));
 
         // Email: shipper -> carrier
         if (senderType == SenderType.SHIPPER) {
@@ -126,21 +127,25 @@ public class InvoiceCommunicationService {
             if (to != null && !to.isBlank()) {
                 sendCarrierEmail(doc, msg);
             } else {
-                log.warn("InvoiceCommunication EMAIL skipped: carrierEmail empty for invoiceId={}", invoiceId);
+                log.warn("InvoiceCommunication EMAIL skipped: carrierEmail empty for invoiceId={}", invoiceNo);
             }
         }
 
         return toResponseDTO(doc);
     }
 
-    public InvoiceCommunicationResponseDTO getByInvoiceId(String invoiceIdPath) {
-        final String invoiceId = TextSanitizer.normalizeId(invoiceIdPath);
-        log.info("InvoiceCommunication GET: invoiceId={}", invoiceId);
+    public InvoiceCommunicationResponseDTO getByInvoiceNo(String invoiceNoPath) {
+        final String invoiceNo = TextSanitizer.normalizeId(invoiceNoPath);
+        log.info("InvoiceCommunication GET: invoiceNo={}", invoiceNo);
 
-        InvoiceCommunicationThreadDocument doc = repository.findByInvoiceId(invoiceId)
-                .orElseThrow(() -> new NoSuchElementException("Invoice communication not found for invoiceId=" + invoiceId));
-
+        Optional<InvoiceCommunicationThreadDocument> message = repository.findByInvoiceNo(invoiceNo);
+        try {
+        InvoiceCommunicationThreadDocument doc = message.get();
         return toResponseDTO(doc);
+        }catch(Exception e) {
+        	return null;
+        }
+        
     }
 
     private InvoiceCommunicationResponseDTO toResponseDTO(InvoiceCommunicationThreadDocument doc) {
@@ -148,7 +153,7 @@ public class InvoiceCommunicationService {
                 .stream()
                 .map(m -> InvoiceCommunicationMessageDTO.builder()
                         .messageId(m.getMessageId())
-                        .text(m.getText())
+                        .messageText(m.getMessageText())
                         .timestamp(m.getTimestamp())
                         .senderId(m.getSenderId())
                         .senderName(m.getSenderName())
@@ -157,7 +162,7 @@ public class InvoiceCommunicationService {
                 .toList();
 
         return InvoiceCommunicationResponseDTO.builder()
-                .invoiceId(doc.getInvoiceId())
+                .invoiceNo(doc.getInvoiceNo())
                 .companyId(doc.getCompanyId())
                 .carrier(doc.getCarrier())
                 .carrierEmail(doc.getCarrierEmail())
@@ -175,7 +180,7 @@ public class InvoiceCommunicationService {
      * Replace this stub with your real EmailService integration.
      */
     private void sendCarrierEmail(InvoiceCommunicationThreadDocument thread, Message msg) {
-        String link = "http://localhost:8085/api/v1/invoice-communications/" + thread.getInvoiceId();
+        String link = "http://localhost:8085/api/v1/invoice-communications/" + thread.getInvoiceNo();
 
         String html = """
                 <html>
@@ -189,13 +194,13 @@ public class InvoiceCommunicationService {
                 </html>
                 """.formatted(
                 thread.getCarrier(),
-                thread.getInvoiceId(),
+                thread.getInvoiceNo(),
                 msg.getSenderName(),
-                escapeHtml(msg.getText()),
+                escapeHtml(msg.getMessageText()),
                 link
         );
 
-        log.info("EMAIL (stub) to={} invoiceId={} html={}", thread.getCarrierEmail(), thread.getInvoiceId(), html);
+        log.info("EMAIL (stub) to={} invoiceNo={} html={}", thread.getCarrierEmail(), thread.getInvoiceNo(), html);
     }
 
     // Minimal HTML escaping (avoid breaking HTML)

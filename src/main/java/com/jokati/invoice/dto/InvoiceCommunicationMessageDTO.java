@@ -9,7 +9,7 @@ import lombok.Data;
 @Builder
 public class InvoiceCommunicationMessageDTO {
     private String messageId;
-    private String text;
+    private String messageText;
     private Instant timestamp;
 
     private String senderId;

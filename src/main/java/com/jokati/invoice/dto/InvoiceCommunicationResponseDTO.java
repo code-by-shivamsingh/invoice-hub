@@ -9,7 +9,7 @@ import lombok.Data;
 @Data
 @Builder
 public class InvoiceCommunicationResponseDTO {
-    private String invoiceId;
+    private String invoiceNo;
     private String companyId;
     private String carrier;
     private String carrierEmail;

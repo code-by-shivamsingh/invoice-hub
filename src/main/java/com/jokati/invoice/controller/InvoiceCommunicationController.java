@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.jokati.invoice.common.ApiResponse;
 import com.jokati.invoice.common.ResponseUtil;
+import com.jokati.invoice.dto.InvoiceCommunicationMessageDTO;
 import com.jokati.invoice.dto.InvoiceCommunicationMessageRequestDTO;
 import com.jokati.invoice.dto.InvoiceCommunicationResponseDTO;
 import com.jokati.invoice.service.InvoiceCommunicationService;
@@ -32,23 +33,24 @@ public class InvoiceCommunicationController {
             @Valid @RequestBody InvoiceCommunicationMessageRequestDTO request) {
 
         log.info("InvoiceCommunication POST: invoiceId={}, senderType={}, senderId={}, senderName={}",
-                TextSanitizer.normalizeId(request.getInvoiceId()),
+                TextSanitizer.normalizeId(request.getInvoiceNo()),
                 request.getSenderType(),
                 TextSanitizer.normalizeId(request.getSenderId()),
                 request.getSenderName());
 
         InvoiceCommunicationResponseDTO response = service.sendMessage(request);
-        return ResponseUtil.okObject(response, "Message sent successfully");
+        InvoiceCommunicationMessageDTO message = response.getMessages().getFirst();
+        return ResponseUtil.okObject(message, "Message sent successfully");
     }
 
     @Operation(summary = "Get conversation by invoiceId (latest message first)")
-    @GetMapping("/{invoiceId}")
-    public ResponseEntity<ApiResponse<Object>> getByInvoiceId(@PathVariable @NotBlank String invoiceId) {
+    @GetMapping("/{invoiceNo}")
+    public ResponseEntity<ApiResponse<Object>> getByInvoiceNo(@PathVariable @NotBlank String invoiceNo) {
 
-        final String iid = TextSanitizer.normalizeId(invoiceId);
+        final String iid = TextSanitizer.normalizeId(invoiceNo);
         log.info("InvoiceCommunication GET: invoiceId={}", iid);
 
-        InvoiceCommunicationResponseDTO response = service.getByInvoiceId(iid);
+        InvoiceCommunicationResponseDTO response = service.getByInvoiceNo(iid);
         return ResponseUtil.okObject(response, "Invoice communication fetched successfully");
     }
 }

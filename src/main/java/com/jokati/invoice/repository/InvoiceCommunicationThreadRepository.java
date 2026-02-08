@@ -9,7 +9,7 @@ import com.jokati.invoice.model.InvoiceCommunicationThreadDocument;
 public interface InvoiceCommunicationThreadRepository
         extends MongoRepository<InvoiceCommunicationThreadDocument, String> {
 
-    Optional<InvoiceCommunicationThreadDocument> findByInvoiceId(String invoiceId);
+    Optional<InvoiceCommunicationThreadDocument> findByInvoiceNo(String invoiceNo);
 
-    boolean existsByInvoiceId(String invoiceId);
+    boolean existsByInvoiceNo(String invoiceNo);
 }

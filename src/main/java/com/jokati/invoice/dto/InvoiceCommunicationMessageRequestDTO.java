@@ -9,7 +9,7 @@ import lombok.Data;
 public class InvoiceCommunicationMessageRequestDTO {
 
     @NotBlank
-    private String invoiceId;
+    private String invoiceNo;
 
     /**
      * Required only on first message (thread creation).
