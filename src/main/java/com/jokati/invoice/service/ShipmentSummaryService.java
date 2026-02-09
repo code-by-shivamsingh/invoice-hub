@@ -347,7 +347,7 @@ public class ShipmentSummaryService {
 
     private Map<String, Object> fetchRates(String projectIdHex) {
         try {
-            Optional<ShipperRates> opt = ratesService.findById(projectIdHex);
+            Optional<ShipperRates> opt = ratesService.findByProjectId(projectIdHex);
             Map<String, Object> rates = opt.map(ShipperRates::getRates).orElseGet(HashMap::new);
             log.debug("fetchRates: keys={}", rates.keySet());
             return rates != null ? rates : new HashMap<>();
@@ -359,7 +359,7 @@ public class ShipmentSummaryService {
 
     private Map<String, Object> fetchExtraCosts(String projectIdHex) {
         try {
-            Optional<ShipperExtraCosts> opt = extraCostsService.findById(projectIdHex);
+            Optional<ShipperExtraCosts> opt = extraCostsService.findByProjectId(projectIdHex);
             Map<String, Object> extraCosts = opt.map(ShipperExtraCosts::getExtraCosts).orElseGet(HashMap::new);
             log.debug("fetchExtraCosts: keys={}", extraCosts.keySet());
             return extraCosts != null ? extraCosts : new HashMap<>();

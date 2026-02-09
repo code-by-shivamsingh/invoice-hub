@@ -109,12 +109,16 @@ public class ShipmentSummaryController {
 
         SummaryInitResult result =
                 shipmentSummaryService.getSummaryInitWithMessage(projectIdHex);
+        
 
         if (result == null) {
             log.warn("No message-based summary result for projectId={}", projectIdHex);
             // Node-style 200 OK with {}
             return ResponseUtil.okEmpty("OK");
         }
+        // incase we do not need diesel floater and extra cost in UI
+        result.setDieselFloaterMatrix(null);
+        result.setFetchedShipperExtraCosts(null);
 
         return ResponseUtil.okObject(result, "Summary with message fetched successfully");
     }
