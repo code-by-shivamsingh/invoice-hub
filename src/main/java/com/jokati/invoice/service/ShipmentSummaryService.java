@@ -143,7 +143,7 @@ public class ShipmentSummaryService {
                             LinkedHashMap::new, Collectors.toList()));
 
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
-                    createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
+                    createSortedConsolidatedShipmentData(preparedByCountry, rates,extraCosts, dieselFloaterMatrix);
 
             Map<String, RowSummedTotal> countriesTotals = createCountryRowTotal(consolidatedByCountry, extraCosts);
             double overallTotalPrice = addTotalShipmentPrice(countriesTotals);
@@ -200,7 +200,7 @@ public class ShipmentSummaryService {
                             ));
 
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
-                    createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
+                    createSortedConsolidatedShipmentData(preparedByCountry, rates, extraCosts, dieselFloaterMatrix);
 
             Map<String, RowSummedTotal> countriesTotals =
                     createCountryRowTotal(consolidatedByCountry, extraCosts);
@@ -277,7 +277,7 @@ public class ShipmentSummaryService {
                             LinkedHashMap::new, Collectors.toList()));
 
             Map<String, List<ShipmentItemDocument>> consolidatedByCountry =
-                    createSortedConsolidatedShipmentData(preparedByCountry, extraCosts, dieselFloaterMatrix);
+                    createSortedConsolidatedShipmentData(preparedByCountry,rates, extraCosts, dieselFloaterMatrix);
 
             Map<String, RowSummedTotal> countriesTotals = createCountryRowTotal(consolidatedByCountry, extraCosts);
             double overallTotalPrice = addTotalShipmentPrice(countriesTotals);
@@ -405,6 +405,7 @@ public class ShipmentSummaryService {
 
     public Map<String, List<ShipmentItemDocument>> createSortedConsolidatedShipmentData(
             Map<String, List<ShipmentItemDocument>> groupedByCountry,
+            Map<String, Object> rates,
             Map<String, Object> extraCosts,
             Map<String, Object> dieselFloaterMatrix
     ) {
@@ -417,7 +418,7 @@ public class ShipmentSummaryService {
 
             List<ShipmentItemDocument> sorted = sortByShipmentId(rows);
             List<ShipmentItemDocument> consolidated =
-                    createConsolidatedRows(sorted, country, extraCosts, dieselFloaterMatrix);
+                    createConsolidatedRows(sorted, country, rates, extraCosts, dieselFloaterMatrix);
 
             result.put(country, consolidated);
         }
@@ -453,6 +454,7 @@ public class ShipmentSummaryService {
     private List<ShipmentItemDocument> createConsolidatedRows(
             List<ShipmentItemDocument> rowsByCountry,
             String country,
+            Map<String, Object> rates,
             Map<String, Object> extraCosts,
             Map<String, Object> dieselFloaterMatrix
     ) {
@@ -552,7 +554,7 @@ public class ShipmentSummaryService {
             sumRow = calculateRow(
                     sumRow,
                     Map.of(base.getCountry(), Map.of("IsConsolidated", true)),
-                    Collections.emptyMap(),
+                    rates,
                     Map.of(country, extraCosts.get(country)),
                     dieselFloaterMatrix
             );
@@ -650,6 +652,253 @@ public class ShipmentSummaryService {
     // Row calculation (TS parity + Diesel Floater)
     // ---------------------------------------------------------------------
 
+//    private ShipmentItemDocument calculateRow(
+//            ShipmentItemDocument row,
+//            Map<String, Object> freightBasis,
+//            Map<String, Object> rates,
+//            Map<String, Object> extraCosts,
+//            Map<String, Object> dieselFloaterMatrix
+//    ) {
+//        try {
+//            log.info("dieselFloaterMatrix value under {}", dieselFloaterMatrix.isEmpty());
+//            // Country normalize
+//            final boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
+//            
+//            // Country normalize
+//            String country = safeString(row.getCountry());
+//            if (country.isBlank()) country = "INT";
+//            row.setCountry(country);
+//
+//            // Stack/Loading meters
+//            boolean stackable = Boolean.TRUE.equals(row.getStackable());
+//            int stackFactor = resolveRowStackFactor(row.getStackFactor(), stackable);
+//            row.setStackable(stackable);
+//            row.setStackFactor(stackFactor);
+//
+//            double loadingMeters = safeDouble(row.getLoadingMeters());
+//            if (loadingMeters <= 0) {
+//                loadingMeters = toFixed(((safeDouble(row.getLength()) / 100.0) * (safeDouble(row.getWide()) / 100.0) / 2.4) * safeInt(row.getPalletCount()), 3);
+//            }
+//            if (stackable && stackFactor > 1) {
+//                loadingMeters = toFixed(loadingMeters / stackFactor, 3);
+//            }
+//            row.setLoadingMeters(loadingMeters);
+//            row.setStackFootprintLoadingMeters(loadingMeters);
+//
+//            double cubicMeters;
+//            if (isZero(row.getLength()) && isZero(row.getWide()) && isZero(row.getHeight())) {
+//                cubicMeters = safeDouble(row.getCubicMeters());
+//            } else {
+//                double l = safeDouble(row.getLength()) / 100.0;
+//                double w = safeDouble(row.getWide()) / 100.0;
+//                double h = safeDouble(row.getHeight()) / 100.0;
+//                cubicMeters = toFixed(l * w * h * safeInt(row.getPalletCount()), 3);
+//            }
+//            row.setCubicMeters(cubicMeters);
+//
+//            // Freight basis
+//            Map<String, Object> basisForCountry = getCountryNode(freightBasis, country);
+//            int calculationType = safeInt(basisForCountry.getOrDefault("CalculationType", 0));
+//            Map<String, Object> bulkiness = getNode(basisForCountry, "Bulkiness");
+//            Map<String, Object> minWeight = getNode(basisForCountry, "MinimumWeight");
+//            Map<String, Object> advancedOptions = firstNonNull(
+//                    getNode(basisForCountry, "advancedOptions"),
+//                    getNode(basisForCountry, "AdvancedOptions")
+//            );
+//
+//            double kgThreshold = toDouble(advancedOptions.get("LoadingMetersKg"));
+//            double ldmThreshold = toDouble(advancedOptions.get("LoadingMetersLdm"));
+//
+//            boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
+//            double effForCheck = isSumRow
+//                    ? Math.max(safeDouble(row.getEffectiveWeight()), safeDouble(row.getChargeableWeight()))
+//                    : safeDouble(row.getEffectiveWeight());
+//            boolean meetsKg  = kgThreshold > 0 && effForCheck >= kgThreshold;
+//            boolean meetsLdm = ldmThreshold > 0 && loadingMeters >= ldmThreshold;
+//            int effectiveCalculationType = (calculationType == 0 || calculationType == 1) && (meetsKg || meetsLdm) ? 2 : calculationType;
+//
+//            double weightByCubicMeters = 0;
+//            if (effectiveCalculationType == 1 && bulkiness != null) {
+//                double cmRef = toDouble(bulkiness.get("CubicMeters"));
+//                weightByCubicMeters = toFixed(cmRef * cubicMeters, 0);
+//            }
+//            row.setWeightByCubicMeters(weightByCubicMeters);
+//
+//            double weightByLoadingMeters = 0;
+//            if (effectiveCalculationType == 2 && bulkiness != null) {
+//                double lmRef = toDouble(bulkiness.get("LoadingMeters"));
+//                weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
+//            }
+//            row.setWeightByLoadingMeters(weightByLoadingMeters);
+//
+//            double minWeightValue = computeMinimumWeight(minWeight, safeString(row.getPackagingType()), safeInt(row.getPalletCount()));
+//            row.setMinimumWeight(minWeightValue);
+//
+//            double chargeable = Math.max(
+//                    Math.max(safeDouble(row.getEffectiveWeight()), weightByCubicMeters),
+//                    Math.max(weightByLoadingMeters, minWeightValue)
+//            );
+//            row.setChargeableWeight(chargeable);
+//
+//            // Rates & zip zone
+//            Map<String, Object> countryRate = getCountryNode(rates, country);
+//            if (countryRate == null || countryRate.isEmpty()) {
+//                if (!isSumRow) {
+//                    setError(row, "Land im Tarif nicht angelegt.", 10);
+//                    return row;
+//                }
+//            }
+//
+//            if (safeInt(row.getPalletCount()) <= 0 && !isSumRow) {
+//                setError(row, "Keine Anzahl Packstücke eingetragen.", 3);
+//                return row;
+//            }
+//            if (isBlank(row.getPackagingType())) {
+//                setError(row, "Keine Verpackungsart ausgewählt.", 4);
+//                return row;
+//            }
+//            if (safeDouble(row.getEffectiveWeight()) <= 0 && !isSumRow) {
+//                setError(row, "Kein Effektivgewicht eingetragen.", 6);
+//                return row;
+//            }
+//
+//            double netPrice = 0.0;
+//            if (countryRate != null && !countryRate.isEmpty()) {
+//                String rateType = safeString(countryRate.get("TariffType"));
+//                double normalizedChargeable = normalizeChargeableWeight(rateType, chargeable, row);
+//
+//                Map<String, Object> weightsTable = getNode(countryRate, "Weights");
+//                String matchedWeightKey = findMatchedWeightKey(weightsTable.keySet(), normalizedChargeable);
+//                if (matchedWeightKey == null) {
+//                    setError(row, "Kein passendes Gewicht im Tarif gepflegt", 11);
+//                    return row;
+//                }
+//                Map<String, Object> weightRow = getNode(weightsTable, matchedWeightKey);
+//
+//                int zipCode = resolveZip(row);
+//                List<Map<String, Object>> zipCodesList = getZipCodes(countryRate);
+//                String zoneId = findZipZoneId(zipCodesList, zipCode);
+//                if (zoneId == null) {
+//                    setError(row, "Kein Preis für die entsprechende Postleitzahl eingetragen.", 12);
+//                    return row;
+//                }
+//
+//                double basePrice = getPriceForZone(weightRow, zoneId, rateType, normalizedChargeable);
+//                netPrice = applyMinMaxIfAny(basePrice, findZipRangeById(zipCodesList, zoneId), rateType);
+//            } else {
+//                netPrice = opt(row.getPrice());
+//            }
+//
+//            // Extra costs & Diesel Floater
+//            List<ExtraTermSpec> mergedExtras = getMergedExtraCost(extraCosts, country);
+//
+//            // Toll (Maut)
+//            ExtraTermSpec maut = findTerm(mergedExtras, "Maut");
+//            String tollUnit = (maut == null) ? "€" : maut.unit();
+//            double tollValue = (maut == null) ? 0.0 : maut.value();
+//            double totalToll = "€".equals(tollUnit) ? (safeInt(row.getPalletCount()) * tollValue)
+//                                                    : (netPrice * tollValue / 100.0);
+//
+//            // Diesel Floater config
+//            DieselFloaterConfig floaterCfg = extractDieselFloaterConfig(extraCosts, country);
+//            double dieselPercent = 0.0;
+//            double dieselEuro    = 0.0;
+//
+//            if (floaterCfg != null) {
+//                double matrixVal  = getDieselFloaterMatrixValue(dieselFloaterMatrix, safeString(row.getShipmentDate()), floaterCfg.source());
+//                dieselPercent     = getDieselFloaterPercent(floaterCfg.brackets(), matrixVal);
+//                dieselEuro        = (netPrice / 100.0) * dieselPercent;
+//            } else {
+//                // fallback: plain Dieselzuschlag
+//                ExtraTermSpec dieselSpec = findTerm(mergedExtras, "Dieselzuschlag");
+//                if (dieselSpec != null) {
+//                    if ("%".equals(dieselSpec.unit())) {
+//                        dieselPercent = dieselSpec.value();
+//                        dieselEuro    = (netPrice / 100.0) * dieselPercent;
+//                    } else {
+//                        dieselEuro    = dieselSpec.value();
+//                    }
+//                }
+//            }
+//
+//            // Palettentausch parity for consolidated FP sum rows
+//            double palletExchange = 0.0;
+//            double palletBoxExchange = 0.0;
+//
+//            ExtraTermSpec pe = findTerm(mergedExtras, "Palettentausch");
+//            if (pe != null) {
+//                double perPallet = "%".equals(pe.unit()) ? (netPrice * pe.value() / 100.0) : pe.value();
+//                if (Boolean.TRUE.equals(row.getIsConsolidatedSum()) && Boolean.TRUE.equals(row.getHasFP())) {
+//                    palletExchange = perPallet * optInt(row.getFpPalletCount());
+//                } else if ("FP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
+//                    palletExchange = perPallet * safeInt(row.getPalletCount());
+//                }
+//            }
+//
+//            ExtraTermSpec gb = findTerm(mergedExtras, "Gitterboxtausch");
+//            if (gb != null && "GP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
+//                double perBox = "%".equals(gb.unit()) ? (netPrice * gb.value() / 100.0) : gb.value();
+//                palletBoxExchange = perBox * safeInt(row.getPalletCount());
+//            }
+//
+//            // Flag-driven extras (basic €/%)
+//            Map<String, Double> extrasMap = new LinkedHashMap<>();
+//            addFlagExtra(extrasMap, mergedExtras, row.getExpressNextDay(), "Express Next Day", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getExpress12(), "Express 12:00 Uhr", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getExpress10(), "Express 10:00 Uhr", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getExpress8(), "Express 08:00 Uhr", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getFixtermin(), "Fixtermin", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getEmailAvis(), "E-Mail Avis", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getPhoneAvis(), "Telefonisches Avis", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getBookingInAvis(), "Booking in Avis", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getDangerousGoodsSurcharge(), "Gefahrgutzuschlag", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getLongGoodsSurcharge(), "Langgutzuschlag", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getShortWeekSurcharge(), "Kurzwochenzuschlag", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCarrierCertificate(), "Spediteurbescheinigung", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getB2cNationalSurcharge(), "B2C Zuschlag (national)", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getB2cInternationalSurcharge(), "B2C Zuschlag (international)", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getSecurityFee(), "Security Fee", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getInsurance(), "Versicherung", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getPortiPapiere(), "Porti/Papiere", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCustom1(), "Eigene 1", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCustom2(), "Eigene 2", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCustom3(), "Eigene 3", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCustom4(), "Eigene 4", netPrice);
+//            addFlagExtra(extrasMap, mergedExtras, row.getCustom5(), "Eigene 5", netPrice);
+//
+//            // Totals
+//            row.setPrice(round2(netPrice));
+//            row.setToll(round2(totalToll));
+//            row.setTollPercent(round2(tollValue));
+//            row.setDiesel(round2(dieselEuro));
+//            row.setDieselPercent(round2(dieselPercent));
+//
+//            double extrasSum = extrasMap.values().stream().mapToDouble(ShipmentSummaryService::round2).sum()
+//                    + round2(palletExchange) + round2(palletBoxExchange);
+//
+//            double totalExtraCosts = round2(totalToll + dieselEuro + extrasSum);
+//            double totalRowPrice   = round2(netPrice + totalExtraCosts);
+//
+//            row.setExtraCostsTotalPrice(totalExtraCosts);
+//            row.setTotalPrice(totalRowPrice);
+//
+//            // DO NOT RESET MESSAGE IF ERROR EXISTS
+//            if (row.getErrorType() == null || row.getErrorType() == 0) {
+//                row.setMessage("");
+//            }
+//
+//            log.debug("calculateRow: sid={} country={} net={} toll={} diesel={} extras={} total={}",
+//                    safeString(row.getShipmentId()), country, row.getPrice(), row.getToll(), row.getDiesel(),
+//                    row.getExtraCostsTotalPrice(), row.getTotalPrice());
+//
+//            return row;
+//        } catch (Exception ex) {
+//            log.error("calculateRow: error -> {}", ex.getMessage(), ex);
+//            setError(row, "Berechnungsfehler", 99);
+//            return row;
+//        }
+//    }
+
     private ShipmentItemDocument calculateRow(
             ShipmentItemDocument row,
             Map<String, Object> freightBasis,
@@ -659,6 +908,10 @@ public class ShipmentSummaryService {
     ) {
         try {
             log.info("dieselFloaterMatrix value under {}", dieselFloaterMatrix.isEmpty());
+
+            // Consolidated sum row?
+            final boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
+
             // Country normalize
             String country = safeString(row.getCountry());
             if (country.isBlank()) country = "INT";
@@ -691,7 +944,7 @@ public class ShipmentSummaryService {
             }
             row.setCubicMeters(cubicMeters);
 
-            // Freight basis
+            // Freight basis & advanced options
             Map<String, Object> basisForCountry = getCountryNode(freightBasis, country);
             int calculationType = safeInt(basisForCountry.getOrDefault("CalculationType", 0));
             Map<String, Object> bulkiness = getNode(basisForCountry, "Bulkiness");
@@ -701,10 +954,10 @@ public class ShipmentSummaryService {
                     getNode(basisForCountry, "AdvancedOptions")
             );
 
-            double kgThreshold = toDouble(advancedOptions.get("LoadingMetersKg"));
+            double kgThreshold  = toDouble(advancedOptions.get("LoadingMetersKg"));
             double ldmThreshold = toDouble(advancedOptions.get("LoadingMetersLdm"));
 
-            boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
+            // Switch to LM calculation based on thresholds; for sum rows we won't derive weightBy*
             double effForCheck = isSumRow
                     ? Math.max(safeDouble(row.getEffectiveWeight()), safeDouble(row.getChargeableWeight()))
                     : safeDouble(row.getEffectiveWeight());
@@ -712,27 +965,33 @@ public class ShipmentSummaryService {
             boolean meetsLdm = ldmThreshold > 0 && loadingMeters >= ldmThreshold;
             int effectiveCalculationType = (calculationType == 0 || calculationType == 1) && (meetsKg || meetsLdm) ? 2 : calculationType;
 
-            double weightByCubicMeters = 0;
-            if (effectiveCalculationType == 1 && bulkiness != null) {
-                double cmRef = toDouble(bulkiness.get("CubicMeters"));
-                weightByCubicMeters = toFixed(cmRef * cubicMeters, 0);
+            // ===== For SUM ROWS: freeze derived weights and minimum weight =====
+            double weightByCubicMeters = 0.0;
+            double weightByLoadingMeters = 0.0;
+            double minWeightValue = 0.0;
+
+            if (!isSumRow) {
+                if (effectiveCalculationType == 1 && bulkiness != null) {
+                    double cmRef = toDouble(bulkiness.get("CubicMeters"));
+                    weightByCubicMeters = toFixed(cmRef * cubicMeters, 0);
+                }
+                if (effectiveCalculationType == 2 && bulkiness != null) {
+                    double lmRef = toDouble(bulkiness.get("LoadingMeters"));
+                    weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
+                }
+                minWeightValue = computeMinimumWeight(minWeight, safeString(row.getPackagingType()), safeInt(row.getPalletCount()));
             }
             row.setWeightByCubicMeters(weightByCubicMeters);
-
-            double weightByLoadingMeters = 0;
-            if (effectiveCalculationType == 2 && bulkiness != null) {
-                double lmRef = toDouble(bulkiness.get("LoadingMeters"));
-                weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
-            }
             row.setWeightByLoadingMeters(weightByLoadingMeters);
-
-            double minWeightValue = computeMinimumWeight(minWeight, safeString(row.getPackagingType()), safeInt(row.getPalletCount()));
             row.setMinimumWeight(minWeightValue);
 
-            double chargeable = Math.max(
-                    Math.max(safeDouble(row.getEffectiveWeight()), weightByCubicMeters),
-                    Math.max(weightByLoadingMeters, minWeightValue)
-            );
+            // ===== Preserve incoming chargeable for SUM ROWS; base rows compute normally =====
+            double chargeable = (isSumRow && row.getChargeableWeight() != null && row.getChargeableWeight() > 0)
+                    ? row.getChargeableWeight()
+                    : Math.max(
+                          Math.max(safeDouble(row.getEffectiveWeight()), weightByCubicMeters),
+                          Math.max(weightByLoadingMeters, minWeightValue)
+                      );
             row.setChargeableWeight(chargeable);
 
             // Rates & zip zone
@@ -781,6 +1040,7 @@ public class ShipmentSummaryService {
                 double basePrice = getPriceForZone(weightRow, zoneId, rateType, normalizedChargeable);
                 netPrice = applyMinMaxIfAny(basePrice, findZipRangeById(zipCodesList, zoneId), rateType);
             } else {
+                // fallback to incoming price for sum rows if no rate
                 netPrice = opt(row.getPrice());
             }
 
@@ -791,8 +1051,9 @@ public class ShipmentSummaryService {
             ExtraTermSpec maut = findTerm(mergedExtras, "Maut");
             String tollUnit = (maut == null) ? "€" : maut.unit();
             double tollValue = (maut == null) ? 0.0 : maut.value();
-            double totalToll = "€".equals(tollUnit) ? (safeInt(row.getPalletCount()) * tollValue)
-                                                    : (netPrice * tollValue / 100.0);
+            double totalToll = "€".equals(tollUnit)
+                    ? (safeInt(row.getPalletCount()) * tollValue)
+                    : (netPrice * tollValue / 100.0);
 
             // Diesel Floater config
             DieselFloaterConfig floaterCfg = extractDieselFloaterConfig(extraCosts, country);
@@ -893,7 +1154,7 @@ public class ShipmentSummaryService {
             return row;
         }
     }
-
+    
     // ---------------------------------------------------------------------
     // Extra costs (merge & lookup) + Diesel Floater config/matrix
     // ---------------------------------------------------------------------
