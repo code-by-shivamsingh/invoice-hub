@@ -1346,14 +1346,8 @@ public class ShipmentSummaryService {
         if (dieselFloaterMatrix == null || dieselFloaterMatrix.isEmpty()) return 0.0;
         if (isBlank(shipmentDate) || isBlank(source)) return 0.0;
 
-        LocalDate date;
-        try {
-            String[] parts = shipmentDate.split("-");
-            int y = Integer.parseInt(parts[0]);
-            int m = Integer.parseInt(parts[1]);
-            int d = Math.min(parts.length > 2 ? Integer.parseInt(parts[2]) : 1, 28);
-            date = LocalDate.of(y, m, d);
-        } catch (Exception e) {
+        LocalDate date = parseFlexibleLocalDate(shipmentDate);
+        if (date == null) {
             log.warn("getDieselFloaterMatrixValue: invalid shipmentDate '{}'", shipmentDate);
             return 0.0;
         }
@@ -1372,6 +1366,139 @@ public class ShipmentSummaryService {
         double value = toDouble(monthEntry.get(source));
         log.debug("DieselFloaterMatrix: year={} monthIdx={} source={} value={}", yearKey, monthIndex, source, value);
         return value;
+    }
+
+    /**
+     * Parses shipmentDate in multiple common formats and returns a LocalDate.
+     * Supported examples:
+     *  - 2025-08-11, 2025/08/11, 2025.08.11
+     *  - 11.08.2025, 11/08/2025, 11-08-2025
+     *  - 08/11/2025 (US)
+     *  - 2025-08, 2025/08, 2025.08  (defaults day=1)
+     *  - 20250811 (compact yyyymmdd)
+     *
+     * Returns null if no format matches.
+     */
+    private LocalDate parseFlexibleLocalDate(String shipmentDate) {
+        if (isBlank(shipmentDate)) return null;
+
+        String s = shipmentDate.trim();
+
+        // 1) ISO-like with '-' delimiter first (your original default)
+        //    Try yyyy-MM-dd strictly.
+        try {
+            String[] partsDash = s.split("-");
+            if (partsDash.length >= 2) {
+                int y = Integer.parseInt(partsDash[0]);
+                int m = Integer.parseInt(partsDash[1]);
+                int d = Math.min(partsDash.length > 2 ? Integer.parseInt(partsDash[2]) : 1, 28);
+                return LocalDate.of(y, m, d);
+            }
+        } catch (Exception ignore) { /* try other patterns */ }
+
+        // 2) Dot-delimited (e.g., 11.08.2025 or 2025.08.11)
+        try {
+            String[] partsDot = s.split("\\.");
+            if (partsDot.length == 3) {
+                // Try DD.MM.YYYY
+                int d1 = Integer.parseInt(partsDot[0]);
+                int m1 = Integer.parseInt(partsDot[1]);
+                int y1 = Integer.parseInt(partsDot[2]);
+                if (y1 >= 1000 && m1 >= 1 && m1 <= 12) {
+                    int d = Math.min(d1, 28);
+                    return LocalDate.of(y1, m1, d);
+                }
+                // Try YYYY.MM.DD
+                int y2 = Integer.parseInt(partsDot[0]);
+                int m2 = Integer.parseInt(partsDot[1]);
+                int d2 = Integer.parseInt(partsDot[2]);
+                int d = Math.min(d2, 28);
+                return LocalDate.of(y2, m2, d);
+            } else if (partsDot.length == 2) {
+                // YYYY.MM (day=1)
+                int y = Integer.parseInt(partsDot[0]);
+                int m = Integer.parseInt(partsDot[1]);
+                return LocalDate.of(y, m, 1);
+            }
+        } catch (Exception ignore) { /* try other patterns */ }
+
+        // 3) Slash-delimited (11/08/2025 or 08/11/2025 or 2025/08/11)
+        try {
+            String[] partsSlash = s.split("/");
+            if (partsSlash.length == 3) {
+                // Try DD/MM/YYYY
+                int d1 = Integer.parseInt(partsSlash[0]);
+                int m1 = Integer.parseInt(partsSlash[1]);
+                int y1 = Integer.parseInt(partsSlash[2]);
+                if (y1 >= 1000 && m1 >= 1 && m1 <= 12) {
+                    int d = Math.min(d1, 28);
+                    return LocalDate.of(y1, m1, d);
+                }
+                // Try MM/DD/YYYY (US)
+                int m2 = Integer.parseInt(partsSlash[0]);
+                int d2 = Integer.parseInt(partsSlash[1]);
+                int y2 = Integer.parseInt(partsSlash[2]);
+                if (y2 >= 1000 && m2 >= 1 && m2 <= 12) {
+                    int d = Math.min(d2, 28);
+                    return LocalDate.of(y2, m2, d);
+                }
+                // Try YYYY/MM/DD
+                int y3 = Integer.parseInt(partsSlash[0]);
+                int m3 = Integer.parseInt(partsSlash[1]);
+                int d3 = Integer.parseInt(partsSlash[2]);
+                int d = Math.min(d3, 28);
+                return LocalDate.of(y3, m3, d);
+            } else if (partsSlash.length == 2) {
+                // YYYY/MM (day=1)
+                int y = Integer.parseInt(partsSlash[0]);
+                int m = Integer.parseInt(partsSlash[1]);
+                return LocalDate.of(y, m, 1);
+            }
+        } catch (Exception ignore) { /* try other patterns */ }
+
+        // 4) Hyphen-delimited non-ISO like DD-MM-YYYY
+        try {
+            String[] p = s.split("-");
+            if (p.length == 3) {
+                // Try DD-MM-YYYY
+                int d1 = Integer.parseInt(p[0]);
+                int m1 = Integer.parseInt(p[1]);
+                int y1 = Integer.parseInt(p[2]);
+                if (y1 >= 1000 && m1 >= 1 && m1 <= 12) {
+                    int d = Math.min(d1, 28);
+                    return LocalDate.of(y1, m1, d);
+                }
+                // Try YYYY-MM-DD (already tried earlier, but keep as fallback)
+                int y2 = Integer.parseInt(p[0]);
+                int m2 = Integer.parseInt(p[1]);
+                int d2 = Integer.parseInt(p[2]);
+                int d = Math.min(d2, 28);
+                return LocalDate.of(y2, m2, d);
+            }
+        } catch (Exception ignore) { /* try other patterns */ }
+
+        // 5) Compact yyyymmdd
+        try {
+            if (s.matches("\\d{8}")) {
+                int y = Integer.parseInt(s.substring(0, 4));
+                int m = Integer.parseInt(s.substring(4, 6));
+                int d = Math.min(Integer.parseInt(s.substring(6, 8)), 28);
+                return LocalDate.of(y, m, d);
+            }
+        } catch (Exception ignore) { /* try other patterns */ }
+
+        // 6) Year-Month with spaces or other delimiters (e.g., "2025 08")
+        try {
+            String norm = s.replace('.', '-').replace('/', '-').replace(' ', '-');
+            String[] parts = norm.split("-");
+            if (parts.length == 2 && parts[0].length() == 4) {
+                int y = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                return LocalDate.of(y, m, 1);
+            }
+        } catch (Exception ignore) { /* give up */ }
+
+        return null;
     }
 
     /** Map the matrix value to a percent using brackets. */
