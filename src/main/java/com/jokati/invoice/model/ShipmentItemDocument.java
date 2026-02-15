@@ -1,5 +1,6 @@
-
 package com.jokati.invoice.model;
+
+import java.util.Map;
 
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -25,7 +26,7 @@ public class ShipmentItemDocument {
     private String shipmentId;       // keep newline prefix if sent
 
     @Field("ShipmentDate")
-    private String shipmentDate;     // keep "yyyy-M-d" or any string sent
+    private String shipmentDate;     // any input format (flex parser in service)
 
     @Field("ZipCodeShipper")
     private String zipCodeShipper;
@@ -38,6 +39,9 @@ public class ShipmentItemDocument {
 
     @Field("Country")
     private String country;
+
+    @Field("Kilometers")
+    private Double kilometers;       // NEW: for Kilometer tariff (TS parity)
 
     @Field("Length")
     private Double length;
@@ -98,6 +102,9 @@ public class ShipmentItemDocument {
 
     @Field("Express8")
     private Boolean express8;
+
+    @Field("TailLiftSurcharge")
+    private Boolean tailLiftSurcharge;   // NEW: Hebebühnenzuschlag (TS parity)
 
     @Field("Fixtermin")
     private Boolean fixtermin;
@@ -186,6 +193,9 @@ public class ShipmentItemDocument {
     @Field("DieselPercent")
     private Double dieselPercent;
 
+    @Field("ExtraCosts")
+    private Map<String, Double> extraCosts;   // NEW: per-row computed map (TS parity)
+
     @Field("IsConsolidated")
     private Boolean isConsolidated;
 
@@ -200,13 +210,10 @@ public class ShipmentItemDocument {
 
     @Field("undefined")
     private String undefined;
-    
 
-	@Field("HasFP")
-	    private Boolean hasFP;
-	
-	@Field("FPPalletCount")
-	    private Integer fpPalletCount;
+    @Field("HasFP")
+    private Boolean hasFP;
 
+    @Field("FPPalletCount")
+    private Integer fpPalletCount;
 }
-
