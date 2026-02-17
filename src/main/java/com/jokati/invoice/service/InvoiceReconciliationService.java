@@ -51,7 +51,7 @@ public class InvoiceReconciliationService {
     @Value("${notification.templates.toleranceAccepted:template_tolerance_accepted}")
     private String templateIdToleranceAccepted;
 
-    @Value("${notification.financeEmail:}")
+    @Value("${notification.financeEmail:prod_finance@jokati.app}")
     private String financeEmail; // Keep empty-safe; if blank, email is skipped
 
     /**
