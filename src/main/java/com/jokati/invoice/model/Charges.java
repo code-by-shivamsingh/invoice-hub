@@ -26,6 +26,15 @@ public class Charges {
 
     @NotNull @DecimalMin("0.0")
     private BigDecimal expressNextDay;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal express12;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal express10;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal express8;
 
     @NotNull @DecimalMin("0.0")
     private BigDecimal palletExchange;
@@ -35,6 +44,36 @@ public class Charges {
 
     @NotNull @DecimalMin("0.0")
     private BigDecimal liftingPlatformSurcharge;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal tailLiftSurcharge;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal fixtermin;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal emailAvis;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal bookingInAvis;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal shortWeekSurcharge;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal insurance;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal dangerousGoodsSurcharge;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal securityFee;
+
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal longGoodsSurcharge;
+    
+    @NotNull @DecimalMin("0.0")
+    private BigDecimal portiPapiere;
 
     @NotNull @DecimalMin("0.0")
     private BigDecimal custom1;
@@ -50,18 +89,6 @@ public class Charges {
 
     @NotNull @DecimalMin("0.0")
     private BigDecimal custom5;
-
-    @NotNull @DecimalMin("0.0")
-    private BigDecimal insurance;
-
-    @NotNull @DecimalMin("0.0")
-    private BigDecimal dangerousGoodsSurcharge;
-
-    @NotNull @DecimalMin("0.0")
-    private BigDecimal securityFee;
-
-    @NotNull @DecimalMin("0.0")
-    private BigDecimal longGoodsSurcharge;
 
     @NotBlank
     @Size(min = 3, max = 3)
