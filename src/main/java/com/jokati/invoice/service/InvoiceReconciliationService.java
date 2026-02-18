@@ -112,30 +112,48 @@ public class InvoiceReconciliationService {
         boolean emailSent = false;
 
         if (invoiceDifference.compareTo(BigDecimal.ZERO) == 0) {
+
             invoiceStatus = StatusInfo.builder()
                     .label(ACCEPTED)
                     .color(COLOR_SUCCESS)
                     .build();
-            emailSent = sendSafe(templateIdAccepted, financeEmail, Map.of(
+
+            emailService.sendEmailWithTemplateName(
+                financeEmail,
+                "invoice-finance-accepted",   // MongoDB template NAME
+                Map.of(
                     "companyId", companyId,
                     "carrierName", carrierName,
                     "projectId", projectIdHex,
                     "invoiceNumber", safe(invoice.getInvoiceNumber())
-            ));
+                )
+            );
+
+            emailSent = true;
+        
         } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
                 && percentDifference.compareTo(BigDecimal.ZERO) != 0
                 && percentDifference.compareTo(allowedPercent) <= 0) {
+
             invoiceStatus = StatusInfo.builder()
                     .label(TOLERANCE_ACCEPTED)
                     .color(COLOR_WARNING)
                     .build();
-            emailSent = sendSafe(templateIdToleranceAccepted, financeEmail, Map.of(
+
+            emailService.sendEmailWithTemplateName(
+                financeEmail,
+                "invoice-finance-tolerance",   // MongoDB template NAME
+                Map.of(
                     "companyId", companyId,
                     "carrierName", carrierName,
                     "projectId", projectIdHex,
                     "invoiceNumber", safe(invoice.getInvoiceNumber()),
                     "percentDifference", percentDifference
-            ));
+                )
+            );
+
+            emailSent = true;
+        
         } else {
             invoiceStatus = StatusInfo.builder()
                     .label(INCORRECT_BILLING)

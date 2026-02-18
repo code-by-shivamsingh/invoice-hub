@@ -219,6 +219,32 @@ public class ShipperProjectService {
         return "Project deactivated successfully";
     }
 
+    
+    public String getCarrierEmailByCompanyAndCarrier(
+            String companyId,
+            String carrierName
+    ) {
+        if (!StringUtils.hasText(companyId)) {
+            throw new IllegalArgumentException("companyId is required");
+        }
+        if (!StringUtils.hasText(carrierName)) {
+            throw new IllegalArgumentException("carrierName is required");
+        }
+
+        ShipperProject project = repository
+                .findFirstActiveByCompanyIdAndNameIgnoreCase(companyId, carrierName)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "No shipper project found for companyId="
+                                + companyId + ", carrier=" + carrierName
+                ));
+
+        if (!StringUtils.hasText(project.getEmail())) {
+            throw new IllegalStateException("Carrier email not found in shipper project");
+        }
+
+        return project.getEmail();
+    }
+    
     /* -------- mapping -------- */
 
     private ShipperProjectResponseDTO toResponseDTO(ShipperProject entity) {
