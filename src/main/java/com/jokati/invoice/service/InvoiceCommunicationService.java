@@ -41,6 +41,7 @@ public class InvoiceCommunicationService {
     private final InvoiceCommunicationThreadRepository repository;
     private final MongoTemplate mongoTemplate;
     private final EmailService emailService;
+    private final ShipperProjectService shipperProjectService;// getCarrierEmailByCompanyAndCarrier
     
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
@@ -85,7 +86,7 @@ public class InvoiceCommunicationService {
         // We enforce required fields on first create.
         String companyId = TextSanitizer.normalizeId(request.getCompanyId());
         String carrier   = TextSanitizer.trimUnicode(request.getCarrier());
-        String carrierEmail = TextSanitizer.trimUnicode(request.getCarrierEmail());
+        String carrierEmail = TextSanitizer.trimUnicode(shipperProjectService.getCarrierEmailByCompanyAndCarrier(companyId, carrier)); //
 
         if (!exists) {
             // Auto-create only when shipper sends first message (your rule)
