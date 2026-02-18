@@ -1,11 +1,15 @@
 package com.jokati.invoice.service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -25,13 +29,21 @@ import com.jokati.invoice.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
+
 public class InvoiceCommunicationService {
 
     private final InvoiceCommunicationThreadRepository repository;
     private final MongoTemplate mongoTemplate;
+    private final EmailService emailService;
+    
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
 
     /**
      * Single POST behavior:
@@ -179,28 +191,34 @@ public class InvoiceCommunicationService {
      * Production note:
      * Replace this stub with your real EmailService integration.
      */
-    private void sendCarrierEmail(InvoiceCommunicationThreadDocument thread, Message msg) {
-        String link = "http://localhost:8085/api/v1/invoice-communications/" + thread.getInvoiceNo();
+    private void sendCarrierEmail(
+            InvoiceCommunicationThreadDocument thread,
+            Message msg
+    ) {
 
-        String html = """
-                <html>
-                  <body>
-                    <p>Hello %s,</p>
-                    <p>You have received a new message regarding invoice <b>%s</b>.</p>
-                    <p><b>From:</b> %s</p>
-                    <p><b>Message:</b> %s</p>
-                    <p><a href="%s">Click here to open the conversation</a></p>
-                  </body>
-                </html>
-                """.formatted(
-                thread.getCarrier(),
-                thread.getInvoiceNo(),
-                msg.getSenderName(),
-                escapeHtml(msg.getMessageText()),
-                link
+        String link =
+                frontendBaseUrl
+                + "/carrier-sheiper"
+                + "?invoice_number=" + thread.getInvoiceNo()
+                + "&company_id=" + thread.getCompanyId()
+                + "&carrier_name=" + URLEncoder.encode(
+                        thread.getCarrier(),
+                        StandardCharsets.UTF_8
+                );
+
+        Map<String, Object> model = Map.of(
+                "carrierCompany", thread.getCarrier(),
+                "invoiceNo", thread.getInvoiceNo(),
+                "senderName", msg.getSenderName(),
+                "messageText", msg.getMessageText(),
+                "link", link
         );
 
-        log.info("EMAIL (stub) to={} invoiceNo={} html={}", thread.getCarrierEmail(), thread.getInvoiceNo(), html);
+        emailService.sendEmailWithTemplateName(
+                thread.getCarrierEmail(),
+                "angebot-erhalten",
+                model
+        );
     }
 
     // Minimal HTML escaping (avoid breaking HTML)
