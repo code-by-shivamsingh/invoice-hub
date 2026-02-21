@@ -111,7 +111,7 @@ public class InvoiceReconciliationService {
         StatusInfo invoiceStatus;
         boolean emailSent = false;
 
-        if (invoiceDifference.compareTo(BigDecimal.ZERO) == 0) {
+        if (invoiceDifference.compareTo(BigDecimal.ZERO) <= 0) {
 
             invoiceStatus = StatusInfo.builder()
                     .label(ACCEPTED)
@@ -131,8 +131,7 @@ public class InvoiceReconciliationService {
 
             emailSent = true;
         
-        } else if (invoiceDifference.compareTo(BigDecimal.ZERO) > 0
-                && percentDifference.compareTo(BigDecimal.ZERO) != 0
+        } else if (percentDifference.compareTo(BigDecimal.ZERO) != 0
                 && percentDifference.compareTo(allowedPercent) <= 0) {
 
             invoiceStatus = StatusInfo.builder()
@@ -239,7 +238,7 @@ public class InvoiceReconciliationService {
         shipment.setDifference(difference);
 
         shipment.setStatus(
-                difference.compareTo(BigDecimal.ZERO) == 0
+                difference.compareTo(BigDecimal.ZERO) <= 0
                         ? StatusInfo.builder().label(CORRECT_BILLING).color(COLOR_SUCCESS).build()
                         : StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build()
         );

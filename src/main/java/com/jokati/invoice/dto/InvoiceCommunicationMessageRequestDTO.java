@@ -17,6 +17,7 @@ public class InvoiceCommunicationMessageRequestDTO {
      */
     private String companyId;
     private String carrier;
+    private String shipper;
     private String carrierEmail;
 
     @NotBlank

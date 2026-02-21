@@ -23,6 +23,7 @@ public class InvoiceCommunicationThreadDocument {
     // Header / participants
     private String companyId;      // shipper company/user id
     private String carrier;        // carrier name
+    private String shipper;        // Shipper name
     private String carrierEmail;   // optional
 
     // Creator info (thread header includes sender name)
