@@ -55,11 +55,12 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<Object>> get(
             @PathVariable String companyId,
             @PathVariable String invoiceNumber,
+            @RequestParam(required = false) Boolean shipperView,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
 
-        Object response = service.get(companyId, invoiceNumber, page, size);
+        Object response = service.get(companyId, invoiceNumber, shipperView, page, size);
         return ResponseUtil.okObject(response, "Invoice fetched successfully");
     }
 

@@ -77,6 +77,7 @@ public class InvoiceService {
     public Object get(
             String companyId,
             String invoiceNumber,
+            Boolean shipperView,
             int page,
             int size
     ) {
