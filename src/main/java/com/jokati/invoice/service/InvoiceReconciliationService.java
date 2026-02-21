@@ -94,6 +94,7 @@ public class InvoiceReconciliationService {
         // Compute invoice-level totals
         BigDecimal invoiceOrderTotal = sumOrZero(invoice.getShipments(), Shipment::getOrderTotal);
 
+        // invoiceGrossTotal means invoice total received in invoice request.
         BigDecimal invoiceGrossTotal = (invoice.getTotals() != null && invoice.getTotals().getGrossAmount() != null)
                 ? scale2(invoice.getTotals().getGrossAmount())
                 : BigDecimal.ZERO;
