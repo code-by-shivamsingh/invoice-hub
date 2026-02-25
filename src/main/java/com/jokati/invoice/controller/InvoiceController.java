@@ -55,7 +55,7 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<Object>> get(
             @PathVariable String companyId,
             @PathVariable String invoiceNumber,
-            @RequestParam(required = false) Boolean shipperView,
+            @RequestParam(required = false, defaultValue = "false") Boolean shipperView,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
