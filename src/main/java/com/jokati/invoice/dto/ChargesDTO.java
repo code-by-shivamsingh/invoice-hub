@@ -33,12 +33,24 @@ public class ChargesDTO {
 
     @Builder.Default  @DecimalMin("0.0")
     private BigDecimal palletExchange = BigDecimal.ZERO;
+    
+    @Builder.Default  @DecimalMin("0.0")
+    private BigDecimal palletBoxExchange = BigDecimal.ZERO;
 
     @Builder.Default  @DecimalMin("0.0")
     private BigDecimal phoneAvis = BigDecimal.ZERO;
 
     @Builder.Default  @DecimalMin("0.0")
     private BigDecimal liftingPlatformSurcharge = BigDecimal.ZERO;
+    
+    @Builder.Default  @DecimalMin("0.0")
+    private BigDecimal b2cNationalSurcharge = BigDecimal.ZERO;
+    
+    @Builder.Default  @DecimalMin("0.0")
+    private BigDecimal b2cInternationalSurcharge = BigDecimal.ZERO;
+    
+    @Builder.Default  @DecimalMin("0.0")
+    private BigDecimal carrierCertificate = BigDecimal.ZERO;
 
     @Builder.Default  @DecimalMin("0.0")
     private BigDecimal tailLiftSurcharge = BigDecimal.ZERO;

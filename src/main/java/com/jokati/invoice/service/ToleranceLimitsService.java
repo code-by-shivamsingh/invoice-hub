@@ -173,7 +173,7 @@ public class ToleranceLimitsService {
                 .freightCostsPercent(BigDecimal.ZERO)
                 .standardAdditionalCostsPercent(BigDecimal.ZERO)
                 // choose a safe default; adjust if your business wants true
-                .onlyPositiveDeviation(Boolean.FALSE)
+                .onlyPositiveDeviation(Boolean.TRUE)
                 // always return an empty list instead of null
                 .ancillaryTolerances(Collections.emptyList())
                 // no document exists so timestamps are null

@@ -116,6 +116,7 @@ public class InvoiceCommunicationService {
             u.setOnInsert("invoiceNo", invoiceNo)
              .setOnInsert("companyId", companyId)
              .setOnInsert("carrier", carrier)
+             .setOnInsert("shipper", request.getShipper())
              .setOnInsert("carrierEmail", carrierEmail)
              .setOnInsert("createdById", senderId)
              .setOnInsert("createdByName", senderName)
@@ -199,7 +200,7 @@ public class InvoiceCommunicationService {
 
         String link =
                 frontendBaseUrl
-                + "/carrier-sheiper"
+                + "/carrier-shipper"
                 + "?invoice_number=" + thread.getInvoiceNo()
                 + "&company_id=" + thread.getCompanyId()
                 + "&carrier_name=" + URLEncoder.encode(
@@ -208,6 +209,7 @@ public class InvoiceCommunicationService {
                 );
 
         Map<String, Object> model = Map.of(
+        		"shipper", thread.getShipper(),
                 "carrierCompany", thread.getCarrier(),
                 "invoiceNo", thread.getInvoiceNo(),
                 "senderName", msg.getSenderName(),

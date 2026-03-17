@@ -24,10 +24,13 @@ import com.jokati.invoice.dto.InvoicePageResponseDTO;
 import com.jokati.invoice.dto.InvoiceRequestDTO;
 import com.jokati.invoice.dto.InvoiceResponseDTO;
 import com.jokati.invoice.dto.ShipmentDTO;
+import com.jokati.invoice.dto.ToleranceLimitsResponseDTO;
 import com.jokati.invoice.mapper.InvoiceMapper;
 import com.jokati.invoice.model.Invoice;
 import com.jokati.invoice.model.Shipment;
 import com.jokati.invoice.repository.InvoiceRepository;
+import com.jokati.invoice.util.ChargesZeroExtrasPruner;
+import com.jokati.invoice.util.ShipperPositiveDeviationPolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,243 +38,260 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InvoiceService {
 
-    private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
+	private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
 
-    private final InvoiceRepository repository;
-    private final InvoiceMapper mapper;
-    private final MongoTemplate mongoTemplate;
-    private final InvoiceReconciliationService invoiceReconciliation;
+	private final InvoiceRepository repository;
+	private final InvoiceMapper mapper;
+	private final MongoTemplate mongoTemplate;
+	private final InvoiceReconciliationService invoiceReconciliation;
+	private final ToleranceLimitsService toleranceService;
 
-    @Transactional
-    public InvoiceResponseDTO create(String pathCompanyId, InvoiceRequestDTO request) {
-        // Validate path/body consistency
-        if (request.getCompanyId() == null || !pathCompanyId.equals(request.getCompanyId())) {
-            throw new IllegalArgumentException("companyId in path and body must match");
-        }
+	@Transactional
+	public InvoiceResponseDTO create(String pathCompanyId, InvoiceRequestDTO request) {
+		// Validate path/body consistency
+		if (request.getCompanyId() == null || !pathCompanyId.equals(request.getCompanyId())) {
+			throw new IllegalArgumentException("companyId in path and body must match");
+		}
 
-        // Pre-check duplicate; prefer unique index at DB to throw DuplicateKeyException
-        boolean exists = repository.existsByCompanyIdAndInvoiceNumber(pathCompanyId, request.getInvoiceNumber());
-        if (exists) {
-            // If you have a unique index, DB will throw DuplicateKeyException; we mirror as 409
-            throw new DuplicateKeyException("Invoice already exists for companyId=" + pathCompanyId +
-                    ", invoiceNumber=" + request.getInvoiceNumber());
-        }
+		// Pre-check duplicate; prefer unique index at DB to throw DuplicateKeyException
+		boolean exists = repository.existsByCompanyIdAndInvoiceNumber(pathCompanyId, request.getInvoiceNumber());
+		if (exists) {
+			// If you have a unique index, DB will throw DuplicateKeyException; we mirror as
+			// 409
+			throw new DuplicateKeyException("Invoice already exists for companyId=" + pathCompanyId + ", invoiceNumber="
+					+ request.getInvoiceNumber());
+		}
 
-        Invoice entity = mapper.toEntity(request);
-        entity.setCompanyId(pathCompanyId);
+		Invoice entity = mapper.toEntity(request);
+		entity.setCompanyId(pathCompanyId);
 
-        // Persist
-        Invoice saved = repository.save(entity);
+		// Persist
+		Invoice saved = repository.save(entity);
 
-        // Reconciliation pipeline
-        Invoice reconciled = invoiceReconciliation.reconcileAndPersist(saved);
+		// Reconciliation pipeline
+		Invoice reconciled = invoiceReconciliation.reconcileAndPersist(saved);
 
-        return mapper.toResponse(reconciled);
-    }
+		return mapper.toResponse(reconciled);
+	}
 
-    /**
-     * Fetches invoice details with paginated shipments.
-     * Pagination is applied only on the embedded shipments list.
-     * Also returns pagination metadata for frontend navigation.
-     */
-    public Object get(
-            String companyId,
-            String invoiceNumber,
-            int page,
-            int size
-    ) {
+	public Object get(String companyId, String invoiceNumber, Boolean shipperView, int page, int size) {
+		if (size <= 0)
+			size = 10;
+		if (size > 100)
+			size = 100;
 
-        if (size <= 0) size = 10;
-        if (size > 100) size = 100;
+		Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
+				.orElseThrow(() -> new NoSuchElementException(
+						"Invoice not found for companyId=" + companyId + ", invoiceNumber=" + invoiceNumber));
 
-        Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-                .orElseThrow(() -> new NoSuchElementException(
-                        "Invoice not found for companyId=" + companyId +
-                        ", invoiceNumber=" + invoiceNumber
-                ));
+		// entity -> response DTO (declare ONCE)
+		InvoiceResponseDTO dto = mapper.toResponse(entity);
 
-        // entity -> dto
-        InvoiceResponseDTO dto = mapper.toResponse(entity);
+		// --- compute policy flag explicitly ---
+		ToleranceLimitsResponseDTO tol = toleranceService.getByCompanyId(companyId);
+		boolean enforcePositiveOnly = Boolean.FALSE.equals(shipperView) && tol != null
+				&& Boolean.TRUE.equals(tol.getOnlyPositiveDeviation());
 
-        List<ShipmentDTO> allShipments = dto.getShipments();
-        int totalElements = allShipments == null ? 0 : allShipments.size();
+		// 1) Filter charges to positive-only (on DTO)
+		ShipperPositiveDeviationPolicy.apply(dto, enforcePositiveOnly);
 
-        int totalPages = (int) Math.ceil((double) totalElements / size);
+		// 2) Overlay shipment/invoice remaps from ENTITY (source of truth)
+		if (enforcePositiveOnly) {
+			// Map shipments by ID for alignment
+			Map<String, com.jokati.invoice.model.Shipment> byId = (entity.getShipments() == null) ? Map.of()
+					: entity.getShipments().stream().collect(java.util.stream.Collectors
+							.toMap(com.jokati.invoice.model.Shipment::getShipmentId, s -> s));
 
-        // page out-of-range guard
-        if (totalPages > 0 && page >= totalPages) {
-            page = totalPages - 1;
-        }
+			if (dto.getShipments() != null) {
+				for (com.jokati.invoice.dto.ShipmentDTO sDto : dto.getShipments()) {
+					com.jokati.invoice.model.Shipment sSrc = byId.get(sDto.getShipmentId());
+					if (sSrc != null) {
+						// difference <- positiveDifference
+						if (sSrc.getPositiveDifference() != null) {
+							sDto.setDifference(sSrc.getPositiveDifference());
+						}
+						// orderSurchargeTotal <- orderPositiveSurchargeTotal
+						if (sSrc.getOrderPositiveSurchargeTotal() != null) {
+							sDto.setOrderSurchargeTotal(sSrc.getOrderPositiveSurchargeTotal());
+						}
+						// orderTotal = null
+						sDto.setOrderTotal(null);
+					}
+				}
+			}
 
-        int start = page * size;
-        int end = Math.min(start + size, totalElements);
+			// Invoice-level: difference <- positiveInvoiceDifference
+			if (entity.getPositiveInvoiceDifference() != null) {
+				// Your InvoiceResponseDTO does not have setInvoiceDifference(...),
+				// but has setDifference(...) at invoice level based on your JSON.
+				dto.setDifference(entity.getPositiveInvoiceDifference());
+			}
+			// invoice.orderTotal = null
+			dto.setOrderTotal(null);
+		}
 
-        List<ShipmentDTO> pagedShipments = List.of();
-        if (start < totalElements) {
-            pagedShipments = allShipments.subList(start, end);
-        }
+		// 3) Optional: prune fields that are zero on both sides (after overlay)
+		boolean hideZeroExtras = true;
+		sanitizeShipmentsExtraCosts(dto, hideZeroExtras);
 
-        dto.setShipments(pagedShipments);
+		// 4) Pagination (unchanged)
+		List<ShipmentDTO> allShipments = dto.getShipments();
+		int totalElements = allShipments == null ? 0 : allShipments.size();
+		int totalPages = (int) Math.ceil((double) totalElements / size);
+		if (totalPages > 0 && page >= totalPages)
+			page = totalPages - 1;
 
-        return Map.of(
-                "invoice", dto,
-                "pagination", Map.of(
-                        "page", page,
-                        "size", size,
-                        "totalElements", totalElements,
-                        "totalPages", totalPages,     
-                        "hasNext", page < totalPages - 1,
-                        "hasPrevious", page > 0
-                )
-        );
-    }
+		int start = page * size;
+		int end = Math.min(start + size, totalElements);
+		List<ShipmentDTO> pagedShipments = List.of();
+		if (start < totalElements) {
+			pagedShipments = allShipments.subList(start, end);
+		}
+		dto.setShipments(pagedShipments);
 
+		return Map.of("invoice", dto, "pagination", Map.of("page", page, "size", size, "totalElements", totalElements,
+				"totalPages", totalPages, "hasNext", page < totalPages - 1, "hasPrevious", page > 0));
+	}
 
-    /** Filtered list for UI (Carrier, Invoice Number, From/To dates) */
-    public List<InvoiceListItemDTO> listFiltered(String companyId,
-                                                 String carrier,
-                                                 String invoiceNumber,
-                                                 String fromDate,
-                                                 String toDate) {
+	private void sanitizeShipmentsExtraCosts(InvoiceResponseDTO dto, boolean hideZeroExtras) {
+		if (dto.getShipments() == null)
+			return;
+		for (ShipmentDTO s : dto.getShipments()) {
+			ChargesZeroExtrasPruner.pruneCommonZeroFields(s.getCharges(), s.getOrderCharges(), hideZeroExtras);
+		}
+	}
 
-        Query q = new Query();
-        q.addCriteria(Criteria.where("companyId").is(companyId));
+	/** Filtered list for UI (Carrier, Invoice Number, From/To dates) */
+	public List<InvoiceListItemDTO> listFiltered(String companyId, String carrier, String invoiceNumber,
+			String fromDate, String toDate) {
 
-        if (carrier != null && !carrier.isBlank() && !"All".equalsIgnoreCase(carrier)) {
-            q.addCriteria(Criteria.where("seller.companyName").is(carrier));
-        }
+		Query q = new Query();
+		q.addCriteria(Criteria.where("companyId").is(companyId));
 
-        if (invoiceNumber != null && !invoiceNumber.isBlank()) {
-            q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
-        }
+		if (carrier != null && !carrier.isBlank() && !"All".equalsIgnoreCase(carrier)) {
+			q.addCriteria(Criteria.where("seller.companyName").is(carrier));
+		}
 
-        LocalDate from = parseDateFlexible(fromDate);
-        LocalDate to   = parseDateFlexible(toDate);
+		if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+			q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
+		}
 
-        if (from != null && to != null) {
-            q.addCriteria(Criteria.where("invoiceDate").gte(from).lte(to));
-        } else if (from != null) {
-            q.addCriteria(Criteria.where("invoiceDate").gte(from));
-        } else if (to != null) {
-            q.addCriteria(Criteria.where("invoiceDate").lte(to));
-        }
+		LocalDate from = parseDateFlexible(fromDate);
+		LocalDate to = parseDateFlexible(toDate);
 
-        List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
-        return invoices.stream().map(mapper::toListItem).toList();
-    }
-    
-    
-    public InvoicePageResponseDTO listFilteredPaged(String companyId,
-            String carrier,
-            String invoiceNumber,
-            String fromDate,
-            String toDate,
-            int page,
-            int size) {
+		if (from != null && to != null) {
+			q.addCriteria(Criteria.where("invoiceDate").gte(from).lte(to));
+		} else if (from != null) {
+			q.addCriteria(Criteria.where("invoiceDate").gte(from));
+		} else if (to != null) {
+			q.addCriteria(Criteria.where("invoiceDate").lte(to));
+		}
 
-        if (size > 100) size = 100;
+		List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
+		return invoices.stream().map(mapper::toListItem).toList();
+	}
 
-        Query q = new Query();
-        q.addCriteria(Criteria.where("companyId").is(companyId));
+	public InvoicePageResponseDTO listFilteredPaged(String companyId, String carrier, String invoiceNumber,
+			String fromDate, String toDate, int page, int size) {
 
-      
-        if (carrier != null && !carrier.isBlank()) {
-            q.addCriteria(Criteria.where("carrier").is(carrier));
-        }
+		if (size > 100)
+			size = 100;
 
-       
-        if (invoiceNumber != null && !invoiceNumber.isBlank()) {
-            q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
-        }
+		Query q = new Query();
+		q.addCriteria(Criteria.where("companyId").is(companyId));
 
-        // Date filter (Mongo ISODate FIX)
-        if (fromDate != null && toDate != null) {
+		if (carrier != null && !carrier.isBlank()) {
+			q.addCriteria(Criteria.where("carrier").is(carrier));
+		}
 
-            Instant fromInstant = LocalDate.parse(fromDate)
-                    .atStartOfDay(ZoneOffset.UTC)
-                    .toInstant();
+		if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+			q.addCriteria(Criteria.where("invoiceNumber").is(invoiceNumber));
+		}
 
-            Instant toInstant = LocalDate.parse(toDate)
-                    .atTime(23, 59, 59)
-                    .toInstant(ZoneOffset.UTC);
+		// Date filter (Mongo ISODate FIX)
+		if (fromDate != null && toDate != null) {
 
-            q.addCriteria(Criteria.where("invoiceDate").gte(fromInstant).lte(toInstant));
-        }
+			Instant fromInstant = LocalDate.parse(fromDate).atStartOfDay(ZoneOffset.UTC).toInstant();
 
-        // Sort
-        q.with(Sort.by(Sort.Direction.DESC, "invoiceDate"));
+			Instant toInstant = LocalDate.parse(toDate).atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
 
-        // Pagination
-        q.skip((long) page * size);
-        q.limit(size);
+			q.addCriteria(Criteria.where("invoiceDate").gte(fromInstant).lte(toInstant));
+		}
 
-        List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
+		// Sort
+		q.with(Sort.by(Sort.Direction.DESC, "invoiceDate"));
 
-        long total = mongoTemplate.count(q.skip(0).limit(0), Invoice.class);
+		// Pagination
+		q.skip((long) page * size);
+		q.limit(size);
 
-        List<InvoiceListItemDTO> dtoList = invoices.stream().map(mapper::toListItem).toList();
+		List<Invoice> invoices = mongoTemplate.find(q, Invoice.class);
 
-        return InvoicePageResponseDTO.builder()
-                .data(dtoList)
-                .page(page)
-                .size(size)
-                .totalElements(total)
-                .totalPages((int) Math.ceil((double) total / size))
-                .build();
-    }
+		long total = mongoTemplate.count(q.skip(0).limit(0), Invoice.class);
 
+		List<InvoiceListItemDTO> dtoList = invoices.stream().map(mapper::toListItem).toList();
 
-    
-    @Transactional
-    public void delete(String companyId, String invoiceNumber) {
-        Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
-                        ", invoiceNumber=" + invoiceNumber));
-        repository.delete(entity);
-        log.info("Invoice deleted: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
-    }
+		return InvoicePageResponseDTO.builder().data(dtoList).page(page).size(size).totalElements(total)
+				.totalPages((int) Math.ceil((double) total / size)).build();
+	}
 
-    @Transactional
-    public InvoiceResponseDTO replace(String companyId, String invoiceNumber, InvoiceRequestDTO request) {
-        Invoice existing = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
-                        ", invoiceNumber=" + invoiceNumber));
+	@Transactional
+	public void delete(String companyId, String invoiceNumber) {
+		Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
+				.orElseThrow(() -> new NoSuchElementException(
+						"Invoice not found for companyId=" + companyId + ", invoiceNumber=" + invoiceNumber));
+		repository.delete(entity);
+		log.info("Invoice deleted: companyId={}, invoiceNumber={}", companyId, invoiceNumber);
+	}
 
-        if (request.getCompanyId() == null || !companyId.equals(request.getCompanyId())) {
-            throw new IllegalArgumentException("companyId in path and body must match");
-        }
-        if (!invoiceNumber.equals(request.getInvoiceNumber())) {
-            throw new IllegalArgumentException("invoiceNumber in path and body must match");
-        }
+	@Transactional
+	public InvoiceResponseDTO replace(String companyId, String invoiceNumber, InvoiceRequestDTO request) {
+		Invoice existing = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
+				.orElseThrow(() -> new NoSuchElementException(
+						"Invoice not found for companyId=" + companyId + ", invoiceNumber=" + invoiceNumber));
 
-        Invoice updated = mapper.toEntity(request);
-        updated.setId(existing.getId());
-        updated.setCompanyId(companyId);
+		if (request.getCompanyId() == null || !companyId.equals(request.getCompanyId())) {
+			throw new IllegalArgumentException("companyId in path and body must match");
+		}
+		if (!invoiceNumber.equals(request.getInvoiceNumber())) {
+			throw new IllegalArgumentException("invoiceNumber in path and body must match");
+		}
 
-        Invoice saved = repository.save(updated);
-        return mapper.toResponse(saved);
-    }
+		Invoice updated = mapper.toEntity(request);
+		updated.setId(existing.getId());
+		updated.setCompanyId(companyId);
 
-    @Transactional
-    public InvoiceResponseDTO addShipment(String companyId, String invoiceNumber, ShipmentDTO dto) {
-        Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
-                .orElseThrow(() -> new NoSuchElementException("Invoice not found for companyId=" + companyId +
-                        ", invoiceNumber=" + invoiceNumber));
+		Invoice saved = repository.save(updated);
+		return mapper.toResponse(saved);
+	}
 
-        Shipment shipment = mapper.toShipment(dto);
+	@Transactional
+	public InvoiceResponseDTO addShipment(String companyId, String invoiceNumber, ShipmentDTO dto) {
+		Invoice entity = repository.findByCompanyIdAndInvoiceNumber(companyId, invoiceNumber)
+				.orElseThrow(() -> new NoSuchElementException(
+						"Invoice not found for companyId=" + companyId + ", invoiceNumber=" + invoiceNumber));
 
-        // Replace if exists (shipmentId unique per invoice)
-        entity.getShipments().removeIf(s -> s.getShipmentId().equalsIgnoreCase(shipment.getShipmentId()));
-        entity.getShipments().add(shipment);
+		Shipment shipment = mapper.toShipment(dto);
 
-        Invoice saved = repository.save(entity);
-        return mapper.toResponse(saved);
-    }
+		// Replace if exists (shipmentId unique per invoice)
+		entity.getShipments().removeIf(s -> s.getShipmentId().equalsIgnoreCase(shipment.getShipmentId()));
+		entity.getShipments().add(shipment);
 
-    private LocalDate parseDateFlexible(String input) {
-        if (input == null || input.isBlank()) return null;
-        try { return LocalDate.parse(input, DateTimeFormatter.ISO_LOCAL_DATE); } catch (Exception ignored) {}
-        try { return LocalDate.parse(input, DateTimeFormatter.ofPattern("dd/MM/yyyy")); } catch (Exception ignored) {}
-        return null;
-    }
+		Invoice saved = repository.save(entity);
+		return mapper.toResponse(saved);
+	}
+
+	private LocalDate parseDateFlexible(String input) {
+		if (input == null || input.isBlank())
+			return null;
+		try {
+			return LocalDate.parse(input, DateTimeFormatter.ISO_LOCAL_DATE);
+		} catch (Exception ignored) {
+		}
+		try {
+			return LocalDate.parse(input, DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+		} catch (Exception ignored) {
+		}
+		return null;
+	}
 }

@@ -25,55 +25,68 @@ import lombok.Setter;
 
 @Document(collection = "invoices")
 @CompoundIndex(name = "company_invoice_unique_idx", def = "{'companyId': 1, 'invoiceNumber': 1}", unique = true)
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Invoice {
 	@Id
-    private String id;
+	private String id;
 
-    /** Company owner; replaces userId. */
-    @Indexed
-    @NotBlank
-    private String companyId;
-    
-    @Indexed
-    @NotBlank
-    private String carrier;
+	/** Company owner; replaces userId. */
+	@Indexed
+	@NotBlank
+	private String companyId;
 
-    @Indexed
-    @NotBlank
-    private String invoiceNumber;
-    
-    @Indexed
-    private LocalDate invoiceDate;
+	@Indexed
+	@NotBlank
+	private String carrier;
 
+	@Indexed
+	@NotBlank
+	private String invoiceNumber;
 
+	@Indexed
+	private LocalDate invoiceDate;
 
-    @NotBlank
-    @Pattern(regexp = "^[A-Z]{3}$", message = "Currency must be ISO-4217 (3 uppercase letters)")
-    private String currency;
+	@NotBlank
+	@Pattern(regexp = "^[A-Z]{3}$", message = "Currency must be ISO-4217 (3 uppercase letters)")
+	private String currency;
 
-    @Valid private Totals totals;
+	@Valid
+	private Totals totals;
 
+	@Builder.Default
+	@Valid
+	private List<Shipment> shipments = new ArrayList<>();
 
-    @Builder.Default
-    @Valid
-    private List<Shipment> shipments = new ArrayList<>();
+	/** NEW: order total coming from the order system (for comparison) */
+	private BigDecimal orderTotal;
 
+	private BigDecimal invoiceDifference;
+	/** SYSTEM status (auto calculated) */
+	private StatusInfo systemStatus;
 
+	/** FINAL status (manual override) */
+	private StatusInfo finalStatus;
 
-    /** NEW: order total coming from the order system (for comparison) */
-    private BigDecimal orderTotal;
+	private Boolean emailStatus;
 
-    private BigDecimal invoiceDifference;
-    /** SYSTEM status (auto calculated) */
-    private StatusInfo systemStatus;
+	// ---------------- NEW FIELDS ----------------
 
-    /** FINAL status (manual override) */
-    private StatusInfo finalStatus;
+	/** Sum of all shipments' positiveDifference. */
+	private BigDecimal positiveInvoiceDifference;
 
-    private Boolean emailStatus;
+	/** Sum of all shipments' orderPositiveSurchargeTotal (for reporting). */
+	private BigDecimal positiveOrderSurchargeTotal;
 
-    @CreatedDate private Instant createdAt;
-    @LastModifiedDate private Instant updatedAt;
+	/** Snapshot of tolerance flag used in reconciliation. */
+	private Boolean onlyPositiveDeviationSnapshot;
+
+	@CreatedDate
+	private Instant createdAt;
+	@LastModifiedDate
+	private Instant updatedAt;
 
 }

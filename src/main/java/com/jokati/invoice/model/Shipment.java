@@ -44,7 +44,6 @@ public class Shipment {
 	@DecimalMin("0.0")
 	private BigDecimal palletCount;
 
-
 	private String packagingType;
 
 	@NotNull
@@ -71,10 +70,8 @@ public class Shipment {
 	@NotNull
 	private Charges charges;
 	private Charges orderCharges;
-	
-	
-	private BigDecimal orderSurchargeTotal;
 
+	private BigDecimal orderSurchargeTotal;
 
 	@NotNull
 	@DecimalMin("0.0")
@@ -89,4 +86,20 @@ public class Shipment {
 
 	/** NEW: billing status as object (label + color) */
 	private StatusInfo status;
+
+	// ---------------- NEW FIELDS ----------------
+
+	/**
+	 * Sum of positive-only extras delta (invoice extras - order extras, clipped at
+	 * 0).
+	 */
+	@Builder.Default
+	@DecimalMin("0.0")
+	private BigDecimal orderPositiveSurchargeTotal = BigDecimal.ZERO;
+
+	/** Base positive delta + orderPositiveSurchargeTotal (non-negative). */
+	@Builder.Default
+	@DecimalMin("0.0")
+	private BigDecimal positiveDifference = BigDecimal.ZERO;
+
 }
