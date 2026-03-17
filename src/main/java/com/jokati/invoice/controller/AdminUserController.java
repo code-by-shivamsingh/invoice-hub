@@ -1,6 +1,5 @@
 package com.jokati.invoice.controller;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,32 +27,30 @@ public class AdminUserController {
 
         AdminUserResponseDTO createdUser = adminUserService.createUser(dto, creatorId);
 
-        // Return only the created user
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
+      
+        return ResponseEntity.ok(createdUser);
     }
 
     // ================= GET USERS =================
     @GetMapping
-    public ResponseEntity<?> getUsers(
+    public ResponseEntity<Map<String,Object>> getUsers(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
 
-        Map<String,Object> response =
-                adminUserService.getUsers(page, size);
+        Map<String,Object> response = adminUserService.getUsers(page, size);
 
+        // Return only users + pagination
         return ResponseEntity.ok(response);
     }
 
     // ================= GET SINGLE USER =================
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUser(@PathVariable String id) {
+    public ResponseEntity<AdminUserResponseDTO> getUser(@PathVariable String id) {
 
-        AdminUserResponseDTO user =
-                adminUserService.getUser(id);
+        AdminUserResponseDTO user = adminUserService.getUser(id);
 
-        return ResponseEntity.ok(Map.of(
-                "user", user
-        ));
+        // Return only the user DTO
+        return ResponseEntity.ok(user);
     }
 
     // ================= UPDATE USER =================
@@ -64,27 +61,25 @@ public class AdminUserController {
 
         AdminUserResponseDTO updatedUser = adminUserService.updateUser(id, dto);
 
-        // Return only the updated user
+        
         return ResponseEntity.ok(updatedUser);
     }
 
     // ================= DELETE USER =================
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable String id) {
+    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String id) {
 
-        String message =
-                adminUserService.deleteUser(id);
+        String message = adminUserService.deleteUser(id);
 
-        return ResponseEntity.ok(Map.of(
-                "message", message
-        ));
+  
+        return ResponseEntity.ok(Map.of("message", message));
     }
 
     // ================= GLOBAL ERROR HANDLER =================
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+        return ResponseEntity.badRequest().body(
                 Map.of(
                         "status", "error",
                         "message", ex.getMessage()

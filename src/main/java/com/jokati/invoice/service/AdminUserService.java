@@ -89,7 +89,7 @@ public class AdminUserService {
                 .stream()
                 .filter(u -> u.getEmail() != null && !u.getEmail().isBlank())
 
-                // ❌ SUPER_ADMIN REMOVE
+                
                 .filter(u -> u.getRole() != AdminUser.UserRole.SUPER_ADMIN)
 
                 .map(this::convertToDTO)
@@ -115,7 +115,7 @@ public class AdminUserService {
         AdminUser user = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // ❌ SUPER_ADMIN ACCESS BLOCK
+      
         if (user.getRole() == AdminUser.UserRole.SUPER_ADMIN)
             throw new RuntimeException("Access denied");
 
@@ -128,7 +128,7 @@ public class AdminUserService {
         AdminUser user = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // ❌ SUPER_ADMIN DELETE BLOCK
+       
         if (user.getRole() == AdminUser.UserRole.SUPER_ADMIN)
             throw new RuntimeException("Cannot delete SUPER_ADMIN");
 
