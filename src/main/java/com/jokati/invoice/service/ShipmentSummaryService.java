@@ -339,30 +339,33 @@ public class ShipmentSummaryService {
 	// ---------------------------------------------------------------------
 
 	public Map<String, List<ShipmentItemDocument>> createSortedConsolidatedShipmentData(
-			Map<String, List<ShipmentItemDocument>> groupedByCountry, Map<String, Object> freightBasis, // NEW: for
-																										// IsConsolidated
-																										// gating
-			Map<String, Object> rates, Map<String, Object> extraCosts, Map<String, Object> dieselFloaterMatrix) {
-		Map<String, List<ShipmentItemDocument>> result = new LinkedHashMap<>();
-		if (groupedByCountry == null || groupedByCountry.isEmpty())
-			return result;
+	        Map<String, List<ShipmentItemDocument>> groupedByCountry,
+	        Map<String, Object> freightBasis, // unchanged
+	        Map<String, Object> rates,
+	        Map<String, Object> extraCosts,
+	        Map<String, Object> dieselFloaterMatrix) {
 
-		for (Map.Entry<String, List<ShipmentItemDocument>> e : groupedByCountry.entrySet()) {
-			String country = e.getKey();
-			List<ShipmentItemDocument> rows = e.getValue();
+	    Map<String, List<ShipmentItemDocument>> result = new LinkedHashMap<>();
+	    if (groupedByCountry == null || groupedByCountry.isEmpty())
+	        return result;
 
-			List<ShipmentItemDocument> sorted = sortByShipmentId(rows);
-			boolean consolidate = isConsolidatedEnabled(freightBasis, country);
-			List<ShipmentItemDocument> consolidated = consolidate
-					? createConsolidatedRows(sorted, country, rates, extraCosts, dieselFloaterMatrix)
-					: sorted;
+	    for (Map.Entry<String, List<ShipmentItemDocument>> e : groupedByCountry.entrySet()) {
+	        String country = e.getKey();
+	        List<ShipmentItemDocument> rows = e.getValue();
 
-			result.put(country, consolidated);
-		}
+	        List<ShipmentItemDocument> sorted = sortByShipmentId(rows);
+	        boolean consolidate = isConsolidatedEnabled(freightBasis, country);
+	        List<ShipmentItemDocument> consolidated = consolidate
+	                // CHANGED: pass freightBasis into createConsolidatedRows so sum row can see AdvancedOptions/Bulkiness
+	                ? createConsolidatedRows(sorted, country, freightBasis, rates, extraCosts, dieselFloaterMatrix) // CHANGED
+	                : sorted;
 
-		return result;
+	        result.put(country, consolidated);
+	    }
+
+	    return result;
 	}
-
+	
 	private boolean isConsolidatedEnabled(Map<String, Object> freightBasis, String country) {
 		if (freightBasis == null)
 			return false;
@@ -404,166 +407,212 @@ public class ShipmentSummaryService {
 		}).collect(Collectors.toList());
 	}
 
-	private List<ShipmentItemDocument> createConsolidatedRows(List<ShipmentItemDocument> rowsByCountry, String country,
-			Map<String, Object> rates, Map<String, Object> extraCosts, Map<String, Object> dieselFloaterMatrix) {
-		log.info("dieselFloaterMatrix is {}", dieselFloaterMatrix.isEmpty());
-		Map<String, Map<String, Double>> sumsPerShipment = new LinkedHashMap<>();
-		Map<String, Integer> lastIndexPerShipment = new LinkedHashMap<>();
-		List<ShipmentItemDocument> out = new ArrayList<>();
+	private List<ShipmentItemDocument> createConsolidatedRows(
+	        List<ShipmentItemDocument> rowsByCountry,
+	        String country,
+	        Map<String, Object> freightBasis,                 // CHANGED: added
+	        Map<String, Object> rates,
+	        Map<String, Object> extraCosts,
+	        Map<String, Object> dieselFloaterMatrix) {
 
-		List<String> consolidatedShipmentIds = getConsolidatedShipmentIds(rowsByCountry);
+	    log.info("dieselFloaterMatrix is {}", dieselFloaterMatrix.isEmpty());
+	    Map<String, Map<String, Double>> sumsPerShipment = new LinkedHashMap<>();
+	    Map<String, Integer> lastIndexPerShipment = new LinkedHashMap<>();
+	    List<ShipmentItemDocument> out = new ArrayList<>();
 
-		// consolidated extras rules (TS parity)
-		final Set<String> extraCostsToCalculateOnce = Set.of("ExpressNextDay", "Express12", "Express10", "Express8",
-				"Fixtermin", "EmailAvis", "PhoneAvis", "BookingInAvis", "DangerousGoodsSurcharge", "LongGoodsSurcharge",
-				"ShortWeekSurcharge", "CarrierCertificate", "B2CNationalSurcharge", "B2CInternationalSurcharge",
-				"SecurityFee", "Insurance", "PortiPapiere");
-		final Set<String> extraCostsToCalculateInPercent = Set.of("DangerousGoodsSurcharge", "ShortWeekSurcharge",
-				"B2CNationalSurcharge", "B2CInternationalSurcharge");
-		final Set<String> extraCostsToCalculatePerPallet = Set.of("PalletExchange", "PalletBoxExchange");
+	    List<String> consolidatedShipmentIds = getConsolidatedShipmentIds(rowsByCountry);
 
-		for (int idx = 0; idx < rowsByCountry.size(); idx++) {
-			ShipmentItemDocument row = rowsByCountry.get(idx);
-			String sid = row.getShipmentId();
+	    // consolidated extras rules (TS parity)
+	    final Set<String> extraCostsToCalculateOnce = Set.of(
+	            "ExpressNextDay", "Express12", "Express10", "Express8",
+	            "Fixtermin", "EmailAvis", "PhoneAvis", "BookingInAvis",
+	            "DangerousGoodsSurcharge", "LongGoodsSurcharge",
+	            "ShortWeekSurcharge", "CarrierCertificate", "B2CNationalSurcharge",
+	            "B2CInternationalSurcharge", "SecurityFee", "Insurance", "PortiPapiere");
 
-			if (sid != null && !sid.isBlank()) {
-				Map<String, Double> sums = sumsPerShipment.computeIfAbsent(sid, k -> new HashMap<>());
-				SUM_PROPERTIES.forEach(prop -> addNumeric(sums, prop, getNumeric(row, prop)));
+	    final Set<String> extraCostsToCalculateInPercent = Set.of( // kept for parity
+	            "DangerousGoodsSurcharge", "ShortWeekSurcharge",
+	            "B2CNationalSurcharge", "B2CInternationalSurcharge");
 
-				boolean isGroup = consolidatedShipmentIds.contains(sid);
-				row.setIsConsolidated(isGroup);
-				if (isGroup)
-					lastIndexPerShipment.put(sid, idx);
-			}
+	    final Set<String> extraCostsToCalculatePerPallet = Set.of(
+	            "PalletExchange", "PalletBoxExchange");
 
-			out.add(row);
-		}
+	    for (int idx = 0; idx < rowsByCountry.size(); idx++) {
+	        ShipmentItemDocument row = rowsByCountry.get(idx);
+	        String sid = row.getShipmentId();
 
-		for (int i = 0; i < consolidatedShipmentIds.size(); i++) {
+	        if (sid != null && !sid.isBlank()) {
+	            Map<String, Double> sums = sumsPerShipment.computeIfAbsent(sid, k -> new HashMap<>());
+	            SUM_PROPERTIES.forEach(prop -> addNumeric(sums, prop, getNumeric(row, prop)));
 
-			String sid = consolidatedShipmentIds.get(i);
-			log.info("consolidated shipment id {}", sid);
-			int lastIndex = lastIndexPerShipment.getOrDefault(sid, -1);
-			if (lastIndex < 0)
-				continue;
+	            boolean isGroup = consolidatedShipmentIds.contains(sid);
+	            row.setIsConsolidated(isGroup);
+	            if (isGroup)
+	                lastIndexPerShipment.put(sid, idx);
+	        }
 
-			List<ShipmentItemDocument> groupRows = out.stream().filter(r -> sid.equals(r.getShipmentId()))
-					.collect(Collectors.toList());
+	        out.add(row);
+	    }
 
-			double maxLength = groupRows.stream().mapToDouble(r -> opt(r.getLength())).max().orElse(0);
-			boolean hasFP = groupRows.stream().anyMatch(r -> "FP".equalsIgnoreCase(r.getPackagingType()));
-			int fpPalletCount = groupRows.stream().filter(r -> "FP".equalsIgnoreCase(r.getPackagingType()))
-					.mapToInt(r -> optInt(r.getPalletCount())).sum();
+	    for (int i = 0; i < consolidatedShipmentIds.size(); i++) {
 
-			// consolidated extras map per TS rules
-			Map<String, Double> consolidatedExtraCosts = new LinkedHashMap<>();
-			// once/max (with % special-case already applied per row)
-			for (String key : extraCostsToCalculateOnce) {
-				double acc = 0.0;
-				for (ShipmentItemDocument r : groupRows) {
-					Map<String, Double> rowExtras = r.getExtraCosts() != null ? r.getExtraCosts() : Map.of();
-					Double v = rowExtras.get(key);
-					if (v != null)
-						acc = Math.max(acc, v);
-				}
-				if (acc > 0)
-					consolidatedExtraCosts.put(key, round2(acc));
-			}
-			// per-pallet SUM
-			for (String key : extraCostsToCalculatePerPallet) {
-				double sum = 0.0;
-				for (ShipmentItemDocument r : groupRows) {
-					Map<String, Double> rowExtras = r.getExtraCosts() != null ? r.getExtraCosts() : Map.of();
-					Double v = rowExtras.get(key);
-					if (v != null)
-						sum += v;
-				}
-				if (sum > 0)
-					consolidatedExtraCosts.put(key, round2(sum));
-			}
-			Map<String, Boolean> consolidatedExtraFlags = consolidatedExtraCosts.keySet().stream()
-					.collect(Collectors.toMap(k -> k, k -> Boolean.TRUE, (a, b) -> a, LinkedHashMap::new));
+	        String sid = consolidatedShipmentIds.get(i);
+	        log.info("consolidated shipment id {}", sid);
+	        int lastIndex = lastIndexPerShipment.getOrDefault(sid, -1);
+	        if (lastIndex < 0)
+	            continue;
 
-			int insertIndex = lastIndex + 1 + i;
-			while (insertIndex < out.size() && sid.equals(out.get(insertIndex).getShipmentId())) {
-				insertIndex++;
-			}
+	        List<ShipmentItemDocument> groupRows = out.stream()
+	                .filter(r -> sid.equals(r.getShipmentId()))
+	                .collect(Collectors.toList());
 
-			ShipmentItemDocument base = rowsByCountry.get(lastIndex);
-			Map<String, Double> sums = sumsPerShipment.getOrDefault(sid, Collections.emptyMap());
+	        double maxLength = groupRows.stream().mapToDouble(r -> opt(r.getLength())).max().orElse(0);
+	        boolean hasFP = groupRows.stream().anyMatch(r -> "FP".equalsIgnoreCase(r.getPackagingType()));
+	        int fpPalletCount = groupRows.stream()
+	                .filter(r -> "FP".equalsIgnoreCase(r.getPackagingType()))
+	                .mapToInt(r -> optInt(r.getPalletCount()))
+	                .sum();
 
-			ShipmentItemDocument sumRow = ShipmentItemDocument.builder().idUpper(null)
-					.idLower(UUID.randomUUID().toString()).shipmentId(sid).shipmentDate(base.getShipmentDate())
-					.zipCodeShipper(base.getZipCodeShipper()).zipCodeConsignee(base.getZipCodeConsignee())
-					.city(base.getCity()).country(base.getCountry()).kilometers(base.getKilometers()).length(maxLength)
-					.wide(0.0).height(0.0).loadingMeters(sums.getOrDefault("LoadingMeters", 0.0)).cubicMeters(0.0)
-					.palletCount(sums.getOrDefault("PalletCount", 0.0) == 0.0 ? 0 : sums.get("PalletCount").intValue())
-					.packagingType("CC").effectiveWeight(sums.getOrDefault("EffectiveWeight", 0.0))
-					.chargeableWeight(sums.getOrDefault("ChargeableWeight", 0.0))
-					.minimumWeight(sums.getOrDefault("MinimumWeight", 0.0))
-					.weightByCubicMeters(sums.getOrDefault("WeightByCubicMeters", 0.0))
-					.weightByLoadingMeters(sums.getOrDefault("WeightByLoadingMeters", 0.0)).stackable(Boolean.FALSE)
-					.stackFactor(1).stackId("").stackFootprintLoadingMeters(0.0).message("").errorType(0)
-					.price(sums.getOrDefault("Price", 0.0)).totalPrice(0.0).extraCostsTotalPrice(0.0).toll(0.0)
-					.tollPercent(0.0).diesel(0.0).dieselPercent(0.0).isConsolidated(Boolean.FALSE)
-					.isConsolidatedSum(Boolean.TRUE).hasPackagingType(hasFP).hasFP(hasFP).fpPalletCount(fpPalletCount)
-					.projectType(base.getProjectType()).undefined(base.getUndefined())
-					// Pre-seed flags true on sum row (TS parity)
-					.expressNextDay(consolidatedExtraFlags.getOrDefault("ExpressNextDay", false))
-					.express12(consolidatedExtraFlags.getOrDefault("Express12", false))
-					.express10(consolidatedExtraFlags.getOrDefault("Express10", false))
-					.express8(consolidatedExtraFlags.getOrDefault("Express8", false))
-					.tailLiftSurcharge(consolidatedExtraFlags.getOrDefault("TailLiftSurcharge", false))
-					.fixtermin(consolidatedExtraFlags.getOrDefault("Fixtermin", false))
-					.emailAvis(consolidatedExtraFlags.getOrDefault("EmailAvis", false))
-					.phoneAvis(consolidatedExtraFlags.getOrDefault("PhoneAvis", false))
-					.bookingInAvis(consolidatedExtraFlags.getOrDefault("BookingInAvis", false))
-					.dangerousGoodsSurcharge(consolidatedExtraFlags.getOrDefault("DangerousGoodsSurcharge", false))
-					.longGoodsSurcharge(consolidatedExtraFlags.getOrDefault("LongGoodsSurcharge", true))
-					.shortWeekSurcharge(consolidatedExtraFlags.getOrDefault("ShortWeekSurcharge", false))
-					.palletExchange(consolidatedExtraFlags.getOrDefault("PalletExchange", false))
-					.palletBoxExchange(consolidatedExtraFlags.getOrDefault("PalletBoxExchange", false))
-					.carrierCertificate(consolidatedExtraFlags.getOrDefault("CarrierCertificate", false))
-					.b2cNationalSurcharge(consolidatedExtraFlags.getOrDefault("B2CNationalSurcharge", false))
-					.b2cInternationalSurcharge(consolidatedExtraFlags.getOrDefault("B2CInternationalSurcharge", false))
-					.securityFee(consolidatedExtraFlags.getOrDefault("SecurityFee", false))
-					.insurance(consolidatedExtraFlags.getOrDefault("Insurance", false))
-					.portiPapiere(consolidatedExtraFlags.getOrDefault("PortiPapiere", false))
-					.custom1(consolidatedExtraFlags.getOrDefault("Custom1", false))
-					.custom2(consolidatedExtraFlags.getOrDefault("Custom2", false))
-					.custom3(consolidatedExtraFlags.getOrDefault("Custom3", false))
-					.custom4(consolidatedExtraFlags.getOrDefault("Custom4", false))
-					.custom5(consolidatedExtraFlags.getOrDefault("Custom5", false)).build();
+	        // consolidated extras map per TS rules
+	        Map<String, Double> consolidatedExtraCosts = new LinkedHashMap<>();
+	        // once/max (with % special-case already applied per row)
+	        for (String key : extraCostsToCalculateOnce) {
+	            double acc = 0.0;
+	            for (ShipmentItemDocument r : groupRows) {
+	                Map<String, Double> rowExtras = r.getExtraCosts() != null ? r.getExtraCosts() : Map.of();
+	                Double v = rowExtras.get(key);
+	                if (v != null) acc = Math.max(acc, v);
+	            }
+	            if (acc > 0) consolidatedExtraCosts.put(key, round2(acc));
+	        }
+	        // per-pallet SUM
+	        for (String key : extraCostsToCalculatePerPallet) {
+	            double sum = 0.0;
+	            for (ShipmentItemDocument r : groupRows) {
+	                Map<String, Double> rowExtras = r.getExtraCosts() != null ? r.getExtraCosts() : Map.of();
+	                Double v = rowExtras.get(key);
+	                if (v != null) sum += v;
+	            }
+	            if (sum > 0) consolidatedExtraCosts.put(key, round2(sum));
+	        }
+	        Map<String, Boolean> consolidatedExtraFlags = consolidatedExtraCosts.keySet().stream()
+	                .collect(Collectors.toMap(k -> k, k -> Boolean.TRUE, (a, b) -> a, LinkedHashMap::new));
 
-			if (country.isBlank())
-				country = "INT";
-			sumRow = calculateRow(sumRow, Map.of(base.getCountry(), Map.of("IsConsolidated", true)), rates,
-					Map.of(country, extraCosts.get(country)), dieselFloaterMatrix);
+	        int insertIndex = lastIndex + 1 + i;
+	        while (insertIndex < out.size() && sid.equals(out.get(insertIndex).getShipmentId())) {
+	            insertIndex++;
+	        }
 
-			// Override per TS consolidated extras logic
-			if (sumRow.getExtraCosts() == null) {
-				sumRow.setExtraCosts(new LinkedHashMap<>());
-			}
-			sumRow.getExtraCosts().putAll(consolidatedExtraCosts);
-			double toll = opt(sumRow.getToll());
-			double diesel = opt(sumRow.getDiesel());
-			double extras = sumRow.getExtraCosts().values().stream().mapToDouble(ShipmentSummaryService::round2).sum();
-			double totalExtras = round2(toll + diesel + extras);
-			sumRow.setExtraCostsTotalPrice(totalExtras);
-			sumRow.setTotalPrice(round2(opt(sumRow.getPrice()) + totalExtras));
+	        ShipmentItemDocument base = rowsByCountry.get(lastIndex);
+	        Map<String, Double> sums = sumsPerShipment.getOrDefault(sid, Collections.emptyMap());
 
-			if (insertIndex >= out.size()) {
-				out.add(sumRow);
-			} else {
-				out.add(insertIndex, sumRow);
-			}
-			log.debug("createConsolidatedRows: inserted sum row for ShipmentId={} at {}", sid, insertIndex);
-		}
+	        ShipmentItemDocument sumRow = ShipmentItemDocument.builder()
+	                .idUpper(null)
+	                .idLower(UUID.randomUUID().toString())
+	                .shipmentId(sid)
+	                .shipmentDate(base.getShipmentDate())
+	                .zipCodeShipper(base.getZipCodeShipper())
+	                .zipCodeConsignee(base.getZipCodeConsignee())
+	                .city(base.getCity())
+	                .country(base.getCountry())
+	                .kilometers(base.getKilometers())
+	                .length(maxLength)
+	                .wide(0.0)
+	                .height(0.0)
+	                .loadingMeters(sums.getOrDefault("LoadingMeters", 0.0))
+	                .cubicMeters(0.0)
+	                .palletCount(sums.getOrDefault("PalletCount", 0.0) == 0.0 ? 0 : sums.get("PalletCount").intValue())
+	                .packagingType("CC")
+	                .effectiveWeight(sums.getOrDefault("EffectiveWeight", 0.0))
+	                .chargeableWeight(sums.getOrDefault("ChargeableWeight", 0.0))
+	                .minimumWeight(sums.getOrDefault("MinimumWeight", 0.0))
+	                .weightByCubicMeters(sums.getOrDefault("WeightByCubicMeters", 0.0))
+	                .weightByLoadingMeters(sums.getOrDefault("WeightByLoadingMeters", 0.0))
+	                .stackable(Boolean.FALSE)
+	                .stackFactor(1)
+	                .stackId("")
+	                .stackFootprintLoadingMeters(0.0)
+	                .message("")
+	                .errorType(0)
+	                .price(sums.getOrDefault("Price", 0.0))
+	                .totalPrice(0.0)
+	                .extraCostsTotalPrice(0.0)
+	                .toll(0.0)
+	                .tollPercent(0.0)
+	                .diesel(0.0)
+	                .dieselPercent(0.0)
+	                .isConsolidated(Boolean.FALSE)
+	                .isConsolidatedSum(Boolean.TRUE)
+	                .hasPackagingType(hasFP)
+	                .hasFP(hasFP)
+	                .fpPalletCount(fpPalletCount)
+	                .projectType(base.getProjectType())
+	                .undefined(base.getUndefined())
+	                // Pre-seed flags true on sum row (TS parity)
+	                .expressNextDay(consolidatedExtraFlags.getOrDefault("ExpressNextDay", false))
+	                .express12(consolidatedExtraFlags.getOrDefault("Express12", false))
+	                .express10(consolidatedExtraFlags.getOrDefault("Express10", false))
+	                .express8(consolidatedExtraFlags.getOrDefault("Express8", false))
+	                .tailLiftSurcharge(consolidatedExtraFlags.getOrDefault("TailLiftSurcharge", false))
+	                .fixtermin(consolidatedExtraFlags.getOrDefault("Fixtermin", false))
+	                .emailAvis(consolidatedExtraFlags.getOrDefault("EmailAvis", false))
+	                .phoneAvis(consolidatedExtraFlags.getOrDefault("PhoneAvis", false))
+	                .bookingInAvis(consolidatedExtraFlags.getOrDefault("BookingInAvis", false))
+	                .dangerousGoodsSurcharge(consolidatedExtraFlags.getOrDefault("DangerousGoodsSurcharge", false))
+	                .longGoodsSurcharge(consolidatedExtraFlags.getOrDefault("LongGoodsSurcharge", true))
+	                .shortWeekSurcharge(consolidatedExtraFlags.getOrDefault("ShortWeekSurcharge", false))
+	                .palletExchange(consolidatedExtraFlags.getOrDefault("PalletExchange", false))
+	                .palletBoxExchange(consolidatedExtraFlags.getOrDefault("PalletBoxExchange", false))
+	                .carrierCertificate(consolidatedExtraFlags.getOrDefault("CarrierCertificate", false))
+	                .b2cNationalSurcharge(consolidatedExtraFlags.getOrDefault("B2CNationalSurcharge", false))
+	                .b2cInternationalSurcharge(consolidatedExtraFlags.getOrDefault("B2CInternationalSurcharge", false))
+	                .securityFee(consolidatedExtraFlags.getOrDefault("SecurityFee", false))
+	                .insurance(consolidatedExtraFlags.getOrDefault("Insurance", false))
+	                .portiPapiere(consolidatedExtraFlags.getOrDefault("PortiPapiere", false))
+	                .custom1(consolidatedExtraFlags.getOrDefault("Custom1", false))
+	                .custom2(consolidatedExtraFlags.getOrDefault("Custom2", false))
+	                .custom3(consolidatedExtraFlags.getOrDefault("Custom3", false))
+	                .custom4(consolidatedExtraFlags.getOrDefault("Custom4", false))
+	                .custom5(consolidatedExtraFlags.getOrDefault("Custom5", false))
+	                .build();
 
-		log.info("createConsolidatedRows: country={} sumRows={}", country, consolidatedShipmentIds.size());
-		return out;
+	        if (country.isBlank() || extraCosts.get(country) == null)
+	            country = "INT";
+	        log.debug("extraCosts.get(country): {}", extraCosts.get(country));
+
+	        // CHANGED: let the sum row see the real freightBasis (AdvancedOptions) and extraCosts (Bulkiness)
+	        sumRow = calculateRow(
+	                sumRow,
+	                freightBasis,          // CHANGED: was Map.of(base.getCountry(), Map.of("IsConsolidated", true))
+	                rates,
+	                extraCosts,            // CHANGED: was Map.of(country, extraCosts.get(country))
+	                dieselFloaterMatrix
+	        );
+
+	        // Override per TS consolidated extras logic
+	        if (sumRow.getExtraCosts() == null) {
+	            sumRow.setExtraCosts(new LinkedHashMap<>());
+	        }
+	        sumRow.getExtraCosts().putAll(consolidatedExtraCosts);
+
+	        double toll = opt(sumRow.getToll());
+	        double diesel = opt(sumRow.getDiesel());
+	        double extras = sumRow.getExtraCosts().values().stream().mapToDouble(ShipmentSummaryService::round2).sum();
+	        double totalExtras = round2(toll + diesel + extras);
+	        sumRow.setExtraCostsTotalPrice(totalExtras);
+	        sumRow.setTotalPrice(round2(opt(sumRow.getPrice()) + totalExtras));
+
+	        if (insertIndex >= out.size()) {
+	            out.add(sumRow);
+	        } else {
+	            out.add(insertIndex, sumRow);
+	        }
+	        log.debug("createConsolidatedRows: inserted sum row for ShipmentId={} at {}", sid, insertIndex);
+	    }
+
+	    log.info("createConsolidatedRows: country={} sumRows={}", country, consolidatedShipmentIds.size());
+	    return out;
 	}
-
 	private List<String> getConsolidatedShipmentIds(List<ShipmentItemDocument> rows) {
 		Map<String, Integer> counts = new LinkedHashMap<>();
 		rows.forEach(r -> {
@@ -657,328 +706,387 @@ public class ShipmentSummaryService {
 	// Row calculation (TS parity + Diesel Floater)
 	// ---------------------------------------------------------------------
 
-	private ShipmentItemDocument calculateRow(ShipmentItemDocument row, Map<String, Object> freightBasis,
-			Map<String, Object> rates, Map<String, Object> extraCosts, Map<String, Object> dieselFloaterMatrix) {
-		try {
-			log.info("dieselFloaterMatrix value under {}", dieselFloaterMatrix.isEmpty());
-			bindRawExtraCosts(extraCosts,
-					safeString(row.getCountry()).isBlank() ? "INT" : safeString(row.getCountry()));
+	private ShipmentItemDocument calculateRow(
+        ShipmentItemDocument row,
+        Map<String, Object> freightBasis,
+        Map<String, Object> rates,
+        Map<String, Object> extraCosts,
+        Map<String, Object> dieselFloaterMatrix) {
 
-			final boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
+    try {
+        // Bind raw extra-costs for tier/values lookup
+        bindRawExtraCosts(extraCosts, safeString(row.getCountry()).isBlank() ? "INT" : safeString(row.getCountry()));
 
-			// Country normalize
-			String country = safeString(row.getCountry());
-			if (country.isBlank())
-				country = "INT";
-			row.setCountry(country);
+        final boolean isSumRow = Boolean.TRUE.equals(row.getIsConsolidatedSum());
 
-			// Stack/Loading meters
-			boolean stackable = Boolean.TRUE.equals(row.getStackable());
-			int stackFactor = resolveRowStackFactor(row.getStackFactor(), stackable);
-			row.setStackable(stackable);
-			row.setStackFactor(stackFactor);
+        // ------------------------------
+        // Country normalize
+        // ------------------------------
+        String country = safeString(row.getCountry());
+        if (country.isBlank()) country = "INT";
+        row.setCountry(country);
 
-			double loadingMeters = safeDouble(row.getLoadingMeters());
-			if (loadingMeters <= 0) {
-				loadingMeters = toFixed(
-						((safeDouble(row.getLength()) / 100.0) * (safeDouble(row.getWide()) / 100.0) / 2.4)
-								* safeInt(row.getPalletCount()),
-						3);
-			}
-			if (stackable && stackFactor > 1) {
-				loadingMeters = toFixed(loadingMeters / stackFactor, 3);
-			}
-			row.setLoadingMeters(loadingMeters);
-			row.setStackFootprintLoadingMeters(loadingMeters);
+        // ------------------------------
+        // Stackability & loading meters
+        // ------------------------------
+        boolean stackable = Boolean.TRUE.equals(row.getStackable());
+        int stackFactor = resolveRowStackFactor(row.getStackFactor(), stackable);
+        row.setStackable(stackable);
+        row.setStackFactor(stackFactor);
 
-			double cubicMeters;
-			if (isZero(row.getLength()) && isZero(row.getWide()) && isZero(row.getHeight())) {
-				cubicMeters = safeDouble(row.getCubicMeters());
-			} else {
-				double l = safeDouble(row.getLength()) / 100.0;
-				double w = safeDouble(row.getWide()) / 100.0;
-				double h = safeDouble(row.getHeight()) / 100.0;
-				cubicMeters = toFixed(l * w * h * safeInt(row.getPalletCount()), 3);
-			}
-			row.setCubicMeters(cubicMeters);
+        double loadingMeters = safeDouble(row.getLoadingMeters());
+        if (loadingMeters <= 0) {
+            loadingMeters = toFixed(
+                ((safeDouble(row.getLength()) / 100.0) * (safeDouble(row.getWide()) / 100.0) / 2.4)
+                * safeInt(row.getPalletCount()), 3);
+        }
+        if (stackable && stackFactor > 1) {
+            loadingMeters = toFixed(loadingMeters / stackFactor, 3);
+        }
+        row.setLoadingMeters(loadingMeters);
+        row.setStackFootprintLoadingMeters(loadingMeters);
 
-			// Freight basis & advanced options
-			Map<String, Object> basisForCountry = getCountryNode(freightBasis, country);
-			int calculationType = safeInt(basisForCountry.getOrDefault("CalculationType", 0));
-			Map<String, Object> bulkiness = getNode(basisForCountry, "Bulkiness");
-			Map<String, Object> minWeight = getNode(basisForCountry, "MinimumWeight");
-			Map<String, Object> advancedOptions = firstNonNull(getNode(basisForCountry, "advancedOptions"),
-					getNode(basisForCountry, "AdvancedOptions"));
+        // ------------------------------
+        // Cubic meters
+        // ------------------------------
+        double cubicMeters;
+        if (isZero(row.getLength()) && isZero(row.getWide()) && isZero(row.getHeight())) {
+            cubicMeters = safeDouble(row.getCubicMeters());
+        } else {
+            double l = safeDouble(row.getLength()) / 100.0;
+            double w = safeDouble(row.getWide()) / 100.0;
+            double h = safeDouble(row.getHeight()) / 100.0;
+            cubicMeters = toFixed(l * w * h * safeInt(row.getPalletCount()), 3);
+        }
+        row.setCubicMeters(cubicMeters);
 
-			double kgThreshold = toDouble(advancedOptions.get("LoadingMetersKg"));
-			double ldmThreshold = toDouble(advancedOptions.get("LoadingMetersLdm"));
+        // ------------------------------
+        // Freight basis & advanced options
+        // ------------------------------
+        Map<String, Object> basisForCountry = getCountryNode(freightBasis, country);
+        int calculationType = safeInt(basisForCountry.getOrDefault("CalculationType", 0));
+        Map<String, Object> bulkiness = getNode(basisForCountry, "Bulkiness");
+        Map<String, Object> minWeight = getNode(basisForCountry, "MinimumWeight");
+        Map<String, Object> advancedOptions = firstNonNull(getNode(basisForCountry, "advancedOptions"),
+                                                           getNode(basisForCountry, "AdvancedOptions"));
 
-			// Switch to LM calculation based on thresholds; for sum rows we won't derive
-			// weightBy*
-			double effForCheck = isSumRow
-					? Math.max(safeDouble(row.getEffectiveWeight()), safeDouble(row.getChargeableWeight()))
-					: safeDouble(row.getEffectiveWeight());
-			boolean meetsKg = kgThreshold > 0 && effForCheck >= kgThreshold;
-			boolean meetsLdm = ldmThreshold > 0 && loadingMeters >= ldmThreshold;
-			int effectiveCalculationType = (calculationType == 0 || calculationType == 1) && (meetsKg || meetsLdm) ? 2
-					: calculationType;
+        double kgThreshold  = toDouble(advancedOptions.get("LoadingMetersKg"));
+        double ldmThreshold = toDouble(advancedOptions.get("LoadingMetersLdm"));
 
-			double weightByCubicMeters = 0.0;
-			double weightByLoadingMeters = 0.0;
-			double minWeightValue = 0.0;
+        // Threshold switch
+        double effForCheck = isSumRow
+                ? Math.max(safeDouble(row.getEffectiveWeight()), safeDouble(row.getChargeableWeight()))
+                : safeDouble(row.getEffectiveWeight());
 
-			if (!isSumRow) {
-				if (effectiveCalculationType == 1 && bulkiness != null) {
-					double cmRef = toDouble(bulkiness.get("CubicMeters"));
-					weightByCubicMeters = toFixed(cmRef * cubicMeters, 0);
-				}
-				if (effectiveCalculationType == 2 && bulkiness != null) {
-					double lmRef = toDouble(bulkiness.get("LoadingMeters"));
-					weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
-				}
-				minWeightValue = computeMinimumWeight(minWeight, safeString(row.getPackagingType()),
-						safeInt(row.getPalletCount()));
-			}
-			row.setWeightByCubicMeters(weightByCubicMeters);
-			row.setWeightByLoadingMeters(weightByLoadingMeters);
-			row.setMinimumWeight(minWeightValue);
+        boolean meetsKg  = kgThreshold  > 0 && effForCheck   >= kgThreshold;
+        boolean meetsLdm = ldmThreshold > 0 && loadingMeters >= ldmThreshold;
 
-			double chargeable = (isSumRow && row.getChargeableWeight() != null && row.getChargeableWeight() > 0)
-					? row.getChargeableWeight()
-					: Math.max(Math.max(safeDouble(row.getEffectiveWeight()), weightByCubicMeters),
-							Math.max(weightByLoadingMeters, minWeightValue));
-			row.setChargeableWeight(chargeable);
+        int effectiveCalculationType =
+            (calculationType == 0 || calculationType == 1) && (meetsKg || meetsLdm) ? 2 : calculationType;
 
-			// Rates & zone
-			Map<String, Object> countryRate = getCountryNode(rates, country);
-			if (countryRate == null || countryRate.isEmpty()) {
-				if (!isSumRow) {
-					setError(row, "Land im Tarif nicht angelegt.", 10);
-					return row;
-				}
-			}
+        // ------------------------------
+        // Derived weights
+        // ------------------------------
+        double weightByCubicMeters = 0.0;
+        double weightByLoadingMeters = 0.0;
+        double minWeightValue = 0.0;
 
-			if (safeInt(row.getPalletCount()) <= 0 && !isSumRow) {
-				setError(row, "Keine Anzahl Packstücke eingetragen.", 3);
-				return row;
-			}
-			if (isBlank(row.getPackagingType())) {
-				setError(row, "Keine Verpackungsart ausgewählt.", 4);
-				return row;
-			}
-			if (safeDouble(row.getEffectiveWeight()) <= 0 && !isSumRow) {
-				setError(row, "Kein Effektivgewicht eingetragen.", 6);
-				return row;
-			}
+        // CM-based weight (if applicable)
+        if (effectiveCalculationType == 1 && bulkiness != null) {
+            double cmRef = toDouble(bulkiness.get("CubicMeters"));
+            weightByCubicMeters = toFixed(cmRef * cubicMeters, 0);
+        }
 
-			double netPrice = 0.0;
-			if (countryRate != null && !countryRate.isEmpty()) {
-				String rateType = safeString(countryRate.get("TariffType"));
-				double normalizedChargeable = normalizeChargeableWeight(rateType, chargeable, row);
+        // LDM-based weight:
+        //  - For base rows: only when type==2 (as before)
+        //  - For SUM rows: ALWAYS compute when Bulkiness.LoadingMeters is available (FIX)
+        if (bulkiness != null) {
+            double lmRef = toDouble(bulkiness.get("LoadingMeters")); // e.g., 1000 kg per LDM
+            if (lmRef > 0 && (meetsLdm || meetsKg)) {
+                if (isSumRow) {
+                    // FIX: always compute LDM weight for consolidated sum rows
+                    weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
+                } else if (effectiveCalculationType == 2) {
+                    weightByLoadingMeters = toFixed(lmRef * loadingMeters, 0);
+                }
+            }
+        }
 
-				Map<String, Object> weightsTable = getNode(countryRate, "Weights");
-				String matchedWeightKey = findMatchedWeightKey(weightsTable.keySet(), normalizedChargeable);
-				if (matchedWeightKey == null) {
-					setError(row, "Kein passendes Gewicht im Tarif gepflegt", 11);
-					return row;
-				}
-				Map<String, Object> weightRow = getNode(weightsTable, matchedWeightKey);
+        // Minimum weight only for base rows (unchanged)
+        if (!isSumRow) {
+            minWeightValue = computeMinimumWeight(minWeight, safeString(row.getPackagingType()),
+                                                  safeInt(row.getPalletCount()));
+        }
 
-				List<Map<String, Object>> zipCodesList = getZipCodes(countryRate);
-				String zoneId;
-				Map<String, Object> matchedZoneEntry;
-				if ("Kilometer".equalsIgnoreCase(rateType)) {
-					double km = safeDouble(row.getKilometers());
-					var kmMatch = findKilometerZone(zipCodesList, km);
-					zoneId = kmMatch != null ? safeString(kmMatch.get("Id")) : null;
-					matchedZoneEntry = kmMatch;
-					if (zoneId == null) {
-						setError(row, "Kein Preis für die entsprechende Kilometerangabe eingetragen.", 12);
-						return row;
-					}
-				} else {
-					var match = findBestZipZoneEntry(zipCodesList, row);
-					zoneId = match != null ? safeString(match.get("Id")) : null;
-					matchedZoneEntry = match;
-					if (zoneId == null) {
-						setError(row, "Kein Preis für die entsprechende Postleitzahl eingetragen.", 12);
-						return row;
-					}
-				}
+        row.setWeightByCubicMeters(weightByCubicMeters);
+        row.setWeightByLoadingMeters(weightByLoadingMeters);
+        row.setMinimumWeight(minWeightValue);
 
-				double basePrice = computeRowPrice(weightRow, zoneId, rateType, normalizedChargeable);
-				netPrice = applyMinMaxIfAny(basePrice, matchedZoneEntry, rateType);
-			} else {
-				netPrice = opt(row.getPrice());
-			}
+        // ------------------------------
+        // Chargeable weight
+        // ------------------------------
+        double chargeable;
+        if (isSumRow) {
+            // FIX: let LDM drive chargeable for consolidated sum rows if present
+            chargeable = Math.max(
+                safeDouble(row.getChargeableWeight()),
+                Math.max(weightByCubicMeters, weightByLoadingMeters)
+            );
+        } else {
+            chargeable = Math.max(
+                Math.max(safeDouble(row.getEffectiveWeight()), weightByCubicMeters),
+                Math.max(weightByLoadingMeters, minWeightValue)
+            );
+        }
+        row.setChargeableWeight(chargeable);
 
-			// Extra costs & Diesel Floater
-			List<ExtraTermSpec> mergedExtras = getMergedExtraCost(extraCosts, country);
+        // ------------------------------
+        // Validate basic row requirements
+        // ------------------------------
+        Map<String, Object> countryRate = getCountryNode(rates, country);
+        if (countryRate == null || countryRate.isEmpty()) {
+            if (!isSumRow) {
+                setError(row, "Land im Tarif nicht angelegt.", 10);
+                return row;
+            }
+        }
 
-			// Toll (Maut), respect Included flag
-			boolean tollIncluded = isTollIncluded(extraCosts, country);
-			ExtraTermSpec maut = findTerm(mergedExtras, "Maut");
-			String tollUnit = tollIncluded ? "" : (maut == null ? "€" : maut.unit());
-			double tollValue = tollIncluded ? 0.0 : (maut == null ? 0.0 : maut.value());
-			double totalToll = "€".equals(tollUnit) ? (safeInt(row.getPalletCount()) * tollValue)
-					: (netPrice * tollValue / 100.0);
-			if (tollIncluded)
-				totalToll = 0.0;
+        if (safeInt(row.getPalletCount()) <= 0 && !isSumRow) {
+            setError(row, "Keine Anzahl Packstücke eingetragen.", 3);
+            return row;
+        }
+        if (isBlank(row.getPackagingType())) {
+            setError(row, "Keine Verpackungsart ausgewählt.", 4);
+            return row;
+        }
+        if (safeDouble(row.getEffectiveWeight()) <= 0 && !isSumRow) {
+            setError(row, "Kein Effektivgewicht eingetragen.", 6);
+            return row;
+        }
 
-			// Diesel Floater config
-			DieselFloaterConfig floaterCfg = extractDieselFloaterConfig(extraCosts, country);
-			double dieselPercent = 0.0;
-			double dieselEuro = 0.0;
+        // ------------------------------
+        // Net price from rates (weights + zone)
+        // ------------------------------
+        double netPrice = 0.0;
+        if (countryRate != null && !countryRate.isEmpty()) {
+            String rateType = safeString(countryRate.get("TariffType"));
 
-			if (floaterCfg != null) {
-				double matrixVal = getDieselFloaterMatrixValue(dieselFloaterMatrix, safeString(row.getShipmentDate()),
-						floaterCfg.source());
-				dieselPercent = getDieselFloaterPercent(floaterCfg.brackets(), matrixVal);
-				dieselEuro = (netPrice / 100.0) * dieselPercent;
-			} else {
-				// fallback: plain Dieselzuschlag
-				ExtraTermSpec dieselSpec = findTerm(mergedExtras, "Dieselzuschlag");
-				if (dieselSpec != null) {
-					if ("%".equals(dieselSpec.unit())) {
-						dieselPercent = dieselSpec.value();
-						dieselEuro = (netPrice / 100.0) * dieselPercent;
-					} else {
-						dieselEuro = dieselSpec.value();
-					}
-				}
-			}
+            // Normalized value is used for multiplication as per tariff semantics
+            double normalizedChargeable = normalizeChargeableWeight(rateType, chargeable, row);
 
-			// Palettentausch & Gitterboxtausch (integer pallets)
-			double palletExchange = 0.0;
-			double palletBoxExchange = 0.0;
+            Map<String, Object> weightsTable = getNode(countryRate, "Weights");
 
-			ExtraTermSpec pe = findTerm(mergedExtras, "Palettentausch");
-			if (pe != null) {
-				// Per-pallet charge: either % of net per pallet OR flat per pallet
-				double perPallet = "%".equals(pe.unit()) ? (netPrice * pe.value() / 100.0) : pe.value();
+            // ---------- FIX: Select weight tier using kilograms for weight tariffs ----------
+            double matchingForKey;
+            switch (rateType) {
+                case "Gewicht 100Kg":
+                case "Gewicht 100Kg aufgerundet":
+                case "Gewicht 10Kg aufgerundet":
+                case "Kilogramm":
+                    matchingForKey = chargeable;            // bracket selection in kg
+                    break;
+                default:
+                    matchingForKey = normalizedChargeable;  // pallets, ldm, kilometer, etc.
+                    break;
+            }
 
-				if (Boolean.TRUE.equals(row.getIsConsolidatedSum()) && Boolean.TRUE.equals(row.getHasFP())) {
-					// Consolidated sum row → multiply by fpPalletCount (integer)
-					palletExchange = perPallet * optInt(row.getFpPalletCount());
-				} else if ("FP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
-					// Base rows → only FP packages get Palettentausch and use integer PalletCount
-					palletExchange = perPallet * safeInt(row.getPalletCount());
-				}
-			}
+            String matchedWeightKey = findMatchedWeightKey(weightsTable.keySet(), matchingForKey);
+            if (matchedWeightKey == null) {
+                setError(row, "Kein passendes Gewicht im Tarif gepflegt", 11);
+                return row;
+            }
+            Map<String, Object> weightRow = getNode(weightsTable, matchedWeightKey);
 
-			ExtraTermSpec gb = findTerm(mergedExtras, "Gitterboxtausch");
-			if (gb != null && "GP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
-				// Only GP gets Gitterboxtausch and uses integer PalletCount
-				double perBox = "%".equals(gb.unit()) ? (netPrice * gb.value() / 100.0) : gb.value();
-				palletBoxExchange = perBox * safeInt(row.getPalletCount());
-			}
+            // Zone selection
+            List<Map<String, Object>> zipCodesList = getZipCodes(countryRate);
+            String zoneId;
+            Map<String, Object> matchedZoneEntry;
 
-			// Flag-driven extras (tiers/values aware)
-			Map<String, Double> extrasMap = new LinkedHashMap<>();
-			putIfPositive(extrasMap, "TailLiftSurcharge",
-					computeExtraCost("Hebebühnenzuschlag", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getExpressNextDay()))
-				putIfPositive(extrasMap, "ExpressNextDay",
-						computeExtraCost("Express Next Day", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getExpress12()))
-				putIfPositive(extrasMap, "Express12",
-						computeExtraCost("Express 12:00 Uhr", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getExpress10()))
-				putIfPositive(extrasMap, "Express10",
-						computeExtraCost("Express 10:00 Uhr", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getExpress8()))
-				putIfPositive(extrasMap, "Express8",
-						computeExtraCost("Express 08:00 Uhr", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getFixtermin()))
-				putIfPositive(extrasMap, "Fixtermin", computeExtraCost("Fixtermin", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getEmailAvis()))
-				putIfPositive(extrasMap, "EmailAvis", computeExtraCost("E-Mail Avis", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getPhoneAvis()))
-				putIfPositive(extrasMap, "PhoneAvis",
-						computeExtraCost("Telefonisches Avis", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getBookingInAvis()))
-				putIfPositive(extrasMap, "BookingInAvis",
-						computeExtraCost("Booking in Avis", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getDangerousGoodsSurcharge()))
-				putIfPositive(extrasMap, "DangerousGoodsSurcharge",
-						computeExtraCost("Gefahrgutzuschlag", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getLongGoodsSurcharge()))
-				putIfPositive(extrasMap, "LongGoodsSurcharge",
-						computeExtraCost("Langgutzuschlag", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getShortWeekSurcharge()))
-				putIfPositive(extrasMap, "ShortWeekSurcharge",
-						computeExtraCost("Kurzwochenzuschlag", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCarrierCertificate()))
-				putIfPositive(extrasMap, "CarrierCertificate",
-						computeExtraCost("Spediteurbescheinigung", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getB2cNationalSurcharge()))
-				putIfPositive(extrasMap, "B2CNationalSurcharge",
-						computeExtraCost("B2C Zuschlag (national)", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getB2cInternationalSurcharge()))
-				putIfPositive(extrasMap, "B2CInternationalSurcharge",
-						computeExtraCost("B2C Zuschlag (international)", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getSecurityFee()))
-				putIfPositive(extrasMap, "SecurityFee", computeExtraCost("Security Fee", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getInsurance()))
-				putIfPositive(extrasMap, "Insurance", computeExtraCost("Versicherung", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getPortiPapiere()))
-				putIfPositive(extrasMap, "PortiPapiere",
-						computeExtraCost("Porti/Papiere", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCustom1()))
-				putIfPositive(extrasMap, "Custom1", computeExtraCost("Eigene 1", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCustom2()))
-				putIfPositive(extrasMap, "Custom2", computeExtraCost("Eigene 2", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCustom3()))
-				putIfPositive(extrasMap, "Custom3", computeExtraCost("Eigene 3", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCustom4()))
-				putIfPositive(extrasMap, "Custom4", computeExtraCost("Eigene 4", mergedExtras, netPrice, row));
-			if (Boolean.TRUE.equals(row.getCustom5()))
-				putIfPositive(extrasMap, "Custom5", computeExtraCost("Eigene 5", mergedExtras, netPrice, row));
-			// ✅ Add Palettentausch / Gitterboxtausch amounts into the per-row extra costs
-			// map
-			if (palletExchange > 0) {
-				extrasMap.put("PalletExchange", round2(palletExchange));
-			}
-			if (palletBoxExchange > 0) {
-				extrasMap.put("PalletBoxExchange", round2(palletBoxExchange));
-			}
+            if ("Kilometer".equalsIgnoreCase(rateType)) {
+                double km = safeDouble(row.getKilometers());
+                Map<String, Object> kmMatch = findKilometerZone(zipCodesList, km);
+                zoneId = kmMatch != null ? safeString(kmMatch.get("Id")) : null;
+                matchedZoneEntry = kmMatch;
+                if (zoneId == null) {
+                    setError(row, "Kein Preis für die entsprechende Kilometerangabe eingetragen.", 12);
+                    return row;
+                }
+            } else {
+                Map<String, Object> match = findBestZipZoneEntry(zipCodesList, row);
+                zoneId = match != null ? safeString(match.get("Id")) : null;
+                matchedZoneEntry = match;
+                if (zoneId == null) {
+                    setError(row, "Kein Preis für die entsprechende Postleitzahl eingetragen.", 12);
+                    return row;
+                }
+            }
 
-			// Totals
-			row.setPrice(round2(netPrice));
-			row.setToll(round2(totalToll));
-			row.setTollPercent(round2(tollValue));
-			row.setDiesel(round2(dieselEuro));
-			row.setDieselPercent(round2(dieselPercent));
+            double basePrice = computeRowPrice(weightRow, zoneId, rateType, normalizedChargeable);
+            netPrice = applyMinMaxIfAny(basePrice, matchedZoneEntry, rateType);
+        } else {
+            netPrice = opt(row.getPrice());
+        }
 
-			// Persist per-row extras (TS parity)
-			row.setExtraCosts(new LinkedHashMap<>(extrasMap));
+        // ------------------------------
+        // Extra costs & Diesel Floater
+        // ------------------------------
+        List<ExtraTermSpec> mergedExtras = getMergedExtraCost(extraCosts, country);
 
-			// Totals (these two are already included via extrasMap)
-			double extrasSum = extrasMap.values().stream().mapToDouble(ShipmentSummaryService::round2).sum();
+        boolean tollIncluded = isTollIncluded(extraCosts, country);
+        ExtraTermSpec maut = findTerm(mergedExtras, "Maut");
+        String tollUnit  = tollIncluded ? "" : (maut == null ? "€" : maut.unit());
+        double tollValue = tollIncluded ? 0.0 : (maut == null ? 0.0 : maut.value());
+        double totalToll = "€".equals(tollUnit) ? (safeInt(row.getPalletCount()) * tollValue)
+                                                : (netPrice * tollValue / 100.0);
+        if (tollIncluded) totalToll = 0.0;
 
-			double totalExtraCosts = round2(totalToll + dieselEuro + extrasSum);
-			double totalRowPrice = round2(netPrice + totalExtraCosts);
+        DieselFloaterConfig floaterCfg = extractDieselFloaterConfig(extraCosts, country);
+        double dieselPercent = 0.0;
+        double dieselEuro = 0.0;
 
-			row.setExtraCostsTotalPrice(totalExtraCosts);
-			row.setTotalPrice(totalRowPrice);
+        if (floaterCfg != null) {
+            double matrixVal = getDieselFloaterMatrixValue(
+                dieselFloaterMatrix, safeString(row.getShipmentDate()), floaterCfg.source());
+            dieselPercent = getDieselFloaterPercent(floaterCfg.brackets(), matrixVal);
+            dieselEuro = (netPrice / 100.0) * dieselPercent;
+        } else {
+            ExtraTermSpec dieselSpec = findTerm(mergedExtras, "Dieselzuschlag");
+            if (dieselSpec != null) {
+                if ("%".equals(dieselSpec.unit())) {
+                    dieselPercent = dieselSpec.value();
+                    dieselEuro = (netPrice / 100.0) * dieselPercent;
+                } else {
+                    dieselEuro = dieselSpec.value();
+                }
+            }
+        }
 
-			if (row.getErrorType() == null || row.getErrorType() == 0) {
-				row.setMessage("");
-			}
+        // Palettentausch / Gitterboxtausch
+        double palletExchange = 0.0;
+        double palletBoxExchange = 0.0;
 
-			log.debug("calculateRow: sid={} country={} net={} toll={} diesel={} extras={} total={}",
-					safeString(row.getShipmentId()), country, row.getPrice(), row.getToll(), row.getDiesel(),
-					row.getExtraCostsTotalPrice(), row.getTotalPrice());
+        ExtraTermSpec pe = findTerm(mergedExtras, "Palettentausch");
+        if (pe != null) {
+            double perPallet = "%".equals(pe.unit()) ? (netPrice * pe.value() / 100.0) : pe.value();
+            if (Boolean.TRUE.equals(row.getIsConsolidatedSum()) && Boolean.TRUE.equals(row.getHasFP())) {
+                palletExchange = perPallet * optInt(row.getFpPalletCount());
+            } else if ("FP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
+                palletExchange = perPallet * safeInt(row.getPalletCount());
+            }
+        }
 
-			return row;
-		} catch (Exception ex) {
-			log.error("calculateRow: error -> {}", ex.getMessage(), ex);
-			setError(row, "Berechnungsfehler", 99);
-			return row;
-		} finally {
-			unbindRawExtraCosts();
-		}
-	}
+        ExtraTermSpec gb = findTerm(mergedExtras, "Gitterboxtausch");
+        if (gb != null && "GP".equalsIgnoreCase(safeString(row.getPackagingType()))) {
+            double perBox = "%".equals(gb.unit()) ? (netPrice * gb.value() / 100.0) : gb.value();
+            palletBoxExchange = perBox * safeInt(row.getPalletCount());
+        }
+
+        Map<String, Double> extrasMap = new LinkedHashMap<>();
+        putIfPositive(extrasMap, "TailLiftSurcharge",
+                computeExtraCost("Hebebühnenzuschlag", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getExpressNextDay()))
+            putIfPositive(extrasMap, "ExpressNextDay",
+                    computeExtraCost("Express Next Day", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getExpress12()))
+            putIfPositive(extrasMap, "Express12",
+                    computeExtraCost("Express 12:00 Uhr", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getExpress10()))
+            putIfPositive(extrasMap, "Express10",
+                    computeExtraCost("Express 10:00 Uhr", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getExpress8()))
+            putIfPositive(extrasMap, "Express8",
+                    computeExtraCost("Express 08:00 Uhr", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getFixtermin()))
+            putIfPositive(extrasMap, "Fixtermin",
+                    computeExtraCost("Fixtermin", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getEmailAvis()))
+            putIfPositive(extrasMap, "EmailAvis",
+                    computeExtraCost("E-Mail Avis", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getPhoneAvis()))
+            putIfPositive(extrasMap, "PhoneAvis",
+                    computeExtraCost("Telefonisches Avis", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getBookingInAvis()))
+            putIfPositive(extrasMap, "BookingInAvis",
+                    computeExtraCost("Booking in Avis", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getDangerousGoodsSurcharge()))
+            putIfPositive(extrasMap, "DangerousGoodsSurcharge",
+                    computeExtraCost("Gefahrgutzuschlag", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getLongGoodsSurcharge()))
+            putIfPositive(extrasMap, "LongGoodsSurcharge",
+                    computeExtraCost("Langgutzuschlag", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getShortWeekSurcharge()))
+            putIfPositive(extrasMap, "ShortWeekSurcharge",
+                    computeExtraCost("Kurzwochenzuschlag", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCarrierCertificate()))
+            putIfPositive(extrasMap, "CarrierCertificate",
+                    computeExtraCost("Spediteurbescheinigung", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getB2cNationalSurcharge()))
+            putIfPositive(extrasMap, "B2CNationalSurcharge",
+                    computeExtraCost("B2C Zuschlag (national)", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getB2cInternationalSurcharge()))
+            putIfPositive(extrasMap, "B2CInternationalSurcharge",
+                    computeExtraCost("B2C Zuschlag (international)", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getSecurityFee()))
+            putIfPositive(extrasMap, "SecurityFee",
+                    computeExtraCost("Security Fee", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getInsurance()))
+            putIfPositive(extrasMap, "Insurance",
+                    computeExtraCost("Versicherung", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getPortiPapiere()))
+            putIfPositive(extrasMap, "PortiPapiere",
+                    computeExtraCost("Porti/Papiere", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCustom1()))
+            putIfPositive(extrasMap, "Custom1", computeExtraCost("Eigene 1", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCustom2()))
+            putIfPositive(extrasMap, "Custom2", computeExtraCost("Eigene 2", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCustom3()))
+            putIfPositive(extrasMap, "Custom3", computeExtraCost("Eigene 3", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCustom4()))
+            putIfPositive(extrasMap, "Custom4", computeExtraCost("Eigene 4", mergedExtras, netPrice, row));
+        if (Boolean.TRUE.equals(row.getCustom5()))
+            putIfPositive(extrasMap, "Custom5", computeExtraCost("Eigene 5", mergedExtras, netPrice, row));
+
+        // Include Palettentausch / Gitterboxtausch if positive
+        if (palletExchange > 0)    extrasMap.put("PalletExchange", round2(palletExchange));
+        if (palletBoxExchange > 0) extrasMap.put("PalletBoxExchange", round2(palletBoxExchange));
+
+        // ------------------------------
+        // Totals
+        // ------------------------------
+        row.setPrice(round2(netPrice));
+        row.setToll(round2(totalToll));
+        row.setTollPercent(round2(tollValue));
+        row.setDiesel(round2(dieselEuro));
+        row.setDieselPercent(round2(dieselPercent));
+
+        row.setExtraCosts(new LinkedHashMap<>(extrasMap));
+
+        double extrasSum = extrasMap.values().stream().mapToDouble(ShipmentSummaryService::round2).sum();
+        double totalExtraCosts = round2(totalToll + dieselEuro + extrasSum);
+        double totalRowPrice = round2(netPrice + totalExtraCosts);
+
+        row.setExtraCostsTotalPrice(totalExtraCosts);
+        row.setTotalPrice(totalRowPrice);
+
+        if (row.getErrorType() == null || row.getErrorType() == 0) {
+            row.setMessage("");
+        }
+
+        log.debug("calculateRow: sid={} country={} net={} toll={} diesel={} extras={} total={}",
+                safeString(row.getShipmentId()), country, row.getPrice(), row.getToll(), row.getDiesel(),
+                row.getExtraCostsTotalPrice(), row.getTotalPrice());
+
+        return row;
+
+    } catch (Exception ex) {
+        log.error("calculateRow: error -> {}", ex.getMessage(), ex);
+        setError(row, "Berechnungsfehler", 99);
+        return row;
+    } finally {
+        unbindRawExtraCosts();
+    }
+}
+
 
 	// ---------------------------------------------------------------------
 	// Extra costs (merge & lookup) + Diesel Floater config/matrix
@@ -1096,17 +1204,17 @@ public class ShipmentSummaryService {
 		return null;
 	}
 
-	private void addFlagExtra(Map<String, Double> extras, List<ExtraTermSpec> list, Boolean flag, String term,
-			double netPrice) {
-		if (Boolean.TRUE.equals(flag)) {
-			ExtraTermSpec spec = findTerm(list, term);
-			if (spec != null) {
-				double v = "%".equals(spec.unit()) ? (netPrice * spec.value() / 100.0) : spec.value();
-				if (v > 0)
-					extras.put(term, round2(v));
-			}
-		}
-	}
+//	private void addFlagExtra(Map<String, Double> extras, List<ExtraTermSpec> list, Boolean flag, String term,
+//			double netPrice) {
+//		if (Boolean.TRUE.equals(flag)) {
+//			ExtraTermSpec spec = findTerm(list, term);
+//			if (spec != null) {
+//				double v = "%".equals(spec.unit()) ? (netPrice * spec.value() / 100.0) : spec.value();
+//				if (v > 0)
+//					extras.put(term, round2(v));
+//			}
+//		}
+//	}
 
 	/**
 	 * Extract DieselFloater config directly from extraCosts raw map (country node).
@@ -1411,17 +1519,17 @@ public class ShipmentSummaryService {
 		return i == null ? 0 : i;
 	}
 
-	@SuppressWarnings("unchecked")
-	private List<Map<String, Object>> getList(Object o) {
-		if (o instanceof List<?>) {
-			List<?> raw = (List<?>) o;
-			if (!raw.isEmpty() && !(raw.get(0) instanceof Map)) {
-				return List.of();
-			}
-			return (List<Map<String, Object>>) raw;
-		}
-		return List.of();
-	}
+//	@SuppressWarnings("unchecked")
+//	private List<Map<String, Object>> getList(Object o) {
+//		if (o instanceof List<?>) {
+//			List<?> raw = (List<?>) o;
+//			if (!raw.isEmpty() && !(raw.get(0) instanceof Map)) {
+//				return List.of();
+//			}
+//			return (List<Map<String, Object>>) raw;
+//		}
+//		return List.of();
+//	}
 
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> getCountryNode(Map<String, Object> dict, String country) {
@@ -1536,19 +1644,63 @@ public class ShipmentSummaryService {
 	}
 
 	private String findMatchedWeightKey(Set<String> keys, double normalizedChargeable) {
-		List<Double> doubles = keys.stream().map(k -> {
-			try {
-				return Double.parseDouble(k);
-			} catch (Exception e) {
-				return Double.POSITIVE_INFINITY;
-			}
-		}).sorted().collect(Collectors.toList());
-		for (Double d : doubles) {
-			if (normalizedChargeable <= d)
-				return d % 1 == 0 ? String.valueOf(d.intValue()) : String.valueOf(d);
-		}
-		return null;
+	    if (keys == null || keys.isEmpty()) return null;
+
+	    // Parse keys robustly (support comma decimals) and keep ORIGINAL key strings for lookup.
+	    class KeyEntry {
+	        final double num;     // numeric value for ordering/comparison
+	        final String raw;     // original string (as stored in the map)
+	        KeyEntry(double num, String raw) { this.num = num; this.raw = raw; }
+	    }
+
+	    List<KeyEntry> parsed = keys.stream()
+	        .map(k -> {
+	            if (k == null) return null;
+	            String trimmed = k.trim();
+	            if (trimmed.isEmpty()) return null;
+	            // Accept "2,5" and "2.5"
+	            String normalized = trimmed.replace("\u00A0", "").replace(" ", "").replace(",", ".");
+	            try {
+	                double val = Double.parseDouble(normalized);
+	                return new KeyEntry(val, trimmed);  // keep original key string
+	            } catch (NumberFormatException ignore) {
+	                return null; // skip unparsable keys instead of +Infinity
+	            }
+	        })
+	        .filter(Objects::nonNull)
+	        .sorted(Comparator.comparingDouble(e -> e.num))
+	        .collect(Collectors.toList());
+
+	    if (parsed.isEmpty()) return null;
+
+	    // Heuristics to infer the key "scale"
+	    double maxKey = parsed.get(parsed.size() - 1).num;
+	    boolean hasFractional = parsed.stream().anyMatch(e -> (e.num % 1.0) != 0.0);
+	    boolean keysLookLikeHundredKgUnits = (maxKey <= 20.0) && hasFractional; // e.g., 2, 2.5, 3 ... => 200kg, 250kg, 300kg
+	    boolean keysLookLikeKilograms      = (maxKey >= 100.0);                  // e.g., 50, 100, 150, 200 ...
+
+	    // Align the incoming value to the key scale (only when it obviously mismatches)
+	    double v = normalizedChargeable;
+	    if (keysLookLikeHundredKgUnits) {
+	        // Keys are per-100kg units; if v looks like kg (far larger), scale down.
+	        if (v > maxKey * 10.0) {
+	            v = v / 100.0;  // kg -> 100kg units
+	        }
+	    } else if (keysLookLikeKilograms) {
+	        // Keys are kilograms; if v looks like per-100kg units (smallish), scale up.
+	        if (v > 0 && v < 20.0) {
+	            v = v * 100.0;  // 100kg units -> kg
+	        }
+	    }
+	    // Else (Paletten/Lademeter etc.), leave v as-is.
+
+	    // Find the smallest key >= v; otherwise return the largest (top bracket).
+	    for (KeyEntry e : parsed) {
+	        if (v <= e.num) return e.raw; // return EXACT original key (string) so map lookup works
+	    }
+	    return parsed.get(parsed.size() - 1).raw;
 	}
+
 
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> getZipCodes(Map<String, Object> countryRate) {
@@ -1559,18 +1711,18 @@ public class ShipmentSummaryService {
 		return List.of();
 	}
 
-	private int resolveZip(ShipmentItemDocument row) {
-		String zipStr = (row.getProjectType() != null && row.getProjectType() == 1)
-				? safeString(row.getZipCodeShipper())
-				: safeString(row.getZipCodeConsignee());
-		if (zipStr.isBlank())
-			zipStr = "00000";
-		try {
-			return Integer.parseInt(zipStr.replaceAll("\\D", ""));
-		} catch (Exception e) {
-			return 0;
-		}
-	}
+//	private int resolveZip(ShipmentItemDocument row) {
+//		String zipStr = (row.getProjectType() != null && row.getProjectType() == 1)
+//				? safeString(row.getZipCodeShipper())
+//				: safeString(row.getZipCodeConsignee());
+//		if (zipStr.isBlank())
+//			zipStr = "00000";
+//		try {
+//			return Integer.parseInt(zipStr.replaceAll("\\D", ""));
+//		} catch (Exception e) {
+//			return 0;
+//		}
+//	}
 
 	private boolean zipInCodes(int zip, String codes) {
 		String normalized = codes.replaceAll("[ /]", "");

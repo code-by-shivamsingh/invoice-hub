@@ -51,7 +51,7 @@ public class InvoiceReconciliationService {
 	@Value("${notification.templates.toleranceAccepted:invoice-finance-tolerance}")
 	private String templateIdToleranceAccepted;
 
-	@Value("${notification.financeEmail:prod_finance@jokati.app}")
+	@Value("${notification.financeEmail:satendergautam@gmail.com}")
 	private String financeEmail; // Keep empty-safe; if blank, email is skipped
 
 	/**
@@ -197,8 +197,10 @@ public class InvoiceReconciliationService {
 				// Base is overbilled -> never tolerated under positives policy
 				invoiceStatus = StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build();
 
-			} else if (positiveOrderSurchargeTotal.compareTo(BigDecimal.ZERO) == 0) {
-				// Base under/equal and no positive extras -> accepted
+			} else if (positiveOrderSurchargeTotal.compareTo(BigDecimal.ZERO) == 0 && basePositiveDeltaTotal.compareTo(BigDecimal.ZERO) == 0) {
+				invoiceStatus = StatusInfo.builder().label(INCORRECT_BILLING).color(COLOR_ERROR).build();
+
+			} else if(positiveOrderSurchargeTotal.compareTo(BigDecimal.ZERO) == 0) {
 				invoiceStatus = StatusInfo.builder().label(ACCEPTED).color(COLOR_SUCCESS).build();
 
 				if (financeEmail != null && !financeEmail.isBlank()) {
@@ -211,7 +213,7 @@ public class InvoiceReconciliationService {
 						log.error("Email failed: {}", ex.getMessage(), ex);
 					}
 				}
-
+				
 			} else {
 				// Base under/equal and positive extras exist -> tolerance by positives-only %
 				BigDecimal positivePercentageDifference;
@@ -366,241 +368,276 @@ public class InvoiceReconciliationService {
 	 * no-sum path; from extras in sum-row path - Unknown extras -> custom1..custom5
 	 * (sorted by normalized key)
 	 */
+	/**
+	 * Builds orderCharges with full breakdown.
+	 *
+	 * Priority:
+	 * - If sum row exists -> take ONLY sum row extraCosts amounts (no recomputation) for extras
+	 * - Else -> prefer numeric amounts from each base row's extraCosts, fallback to catalog+flags
+	 * - Palettentausch uses FP logic in no-sum path; from extras in sum-row path
+	 * - Unknown extras -> custom1..custom5 (sorted by normalized key)
+	 */
 	private Charges buildOrderChargesFullBreakdown(SummaryInitResult summary, String shipmentId, Shipment shipment) {
 
-		// Currency must be NOT blank due to @NotBlank in Charges
-		String currency = "EUR";
-		if (shipment != null && shipment.getCharges() != null && shipment.getCharges().getCurrency() != null
-				&& !shipment.getCharges().getCurrency().isBlank()) {
-			currency = shipment.getCharges().getCurrency();
-		}
+	    // Currency must be NOT blank due to @NotBlank in Charges
+	    String currency = "EUR";
+	    if (shipment != null && shipment.getCharges() != null && shipment.getCharges().getCurrency() != null
+	            && !shipment.getCharges().getCurrency().isBlank()) {
+	        currency = shipment.getCharges().getCurrency();
+	    }
 
-		// Collect rows for this shipment
-		List<ShipmentItemDocument> allRows = collectShipmentRows(summary, shipmentId);
-		List<ShipmentItemDocument> rowsForTotals = selectRowsForTotals(allRows);
-		boolean hasSumRows = rowsForTotals.stream()
-				.anyMatch(r -> r != null && Boolean.TRUE.equals(r.getIsConsolidatedSum()));
+	    // Collect rows for this shipment
+	    List<ShipmentItemDocument> allRows = collectShipmentRows(summary, shipmentId);
+	    List<ShipmentItemDocument> rowsForTotals = selectRowsForTotals(allRows);
+	    boolean hasSumRows = rowsForTotals.stream()
+	            .anyMatch(r -> r != null && Boolean.TRUE.equals(r.getIsConsolidatedSum()));
 
-		// Core totals (freight, toll, diesel) from selected rows (sum rows if present,
-		// else base rows)
-		BigDecimal freightCostSystem = BigDecimal.ZERO;
-		BigDecimal tollCharge = BigDecimal.ZERO;
-		BigDecimal dieselFee = BigDecimal.ZERO;
+	    // Core totals (freight, toll, diesel) from selected rows (sum rows if present, else base rows)
+	    BigDecimal freightCostSystem = BigDecimal.ZERO;
+	    BigDecimal tollCharge = BigDecimal.ZERO;
+	    BigDecimal dieselFee = BigDecimal.ZERO;
 
-		for (ShipmentItemDocument r : rowsForTotals) {
-			if (r == null)
-				continue;
-			freightCostSystem = freightCostSystem.add(nz(r.getPrice()));
-			tollCharge = tollCharge.add(nz(r.getToll()));
-			dieselFee = dieselFee.add(nz(r.getDiesel()));
-		}
-		freightCostSystem = scale2(freightCostSystem);
-		tollCharge = scale2(tollCharge);
-		dieselFee = scale2(dieselFee);
+	    for (ShipmentItemDocument r : rowsForTotals) {
+	        if (r == null) continue;
+	        freightCostSystem = freightCostSystem.add(nz(r.getPrice()));
+	        tollCharge        = tollCharge.add(nz(r.getToll()));
+	        dieselFee         = dieselFee.add(nz(r.getDiesel()));
+	    }
+	    freightCostSystem = scale2(freightCostSystem);
+	    tollCharge        = scale2(tollCharge);
+	    dieselFee         = scale2(dieselFee);
 
-		// Explicit modeled extras
-		BigDecimal expressNextDay = BigDecimal.ZERO;
-		BigDecimal express12 = BigDecimal.ZERO;
-		BigDecimal express10 = BigDecimal.ZERO;
-		BigDecimal express8 = BigDecimal.ZERO;
+	    // Explicit modeled extras
+	    BigDecimal expressNextDay = BigDecimal.ZERO;
+	    BigDecimal express12      = BigDecimal.ZERO;
+	    BigDecimal express10      = BigDecimal.ZERO;
+	    BigDecimal express8       = BigDecimal.ZERO;
 
-		BigDecimal phoneAvis = BigDecimal.ZERO;
-		BigDecimal fixtermin = BigDecimal.ZERO;
-		BigDecimal emailAvis = BigDecimal.ZERO;
-		BigDecimal bookingInAvis = BigDecimal.ZERO;
-		BigDecimal shortWeekSurcharge = BigDecimal.ZERO;
+	    BigDecimal phoneAvis           = BigDecimal.ZERO;
+	    BigDecimal fixtermin           = BigDecimal.ZERO;
+	    BigDecimal emailAvis           = BigDecimal.ZERO;
+	    BigDecimal bookingInAvis       = BigDecimal.ZERO;
+	    BigDecimal shortWeekSurcharge  = BigDecimal.ZERO;
 
-		BigDecimal insurance = BigDecimal.ZERO;
-		BigDecimal dangerousGoods = BigDecimal.ZERO;
-		BigDecimal securityFee = BigDecimal.ZERO;
-		BigDecimal longGoods = BigDecimal.ZERO;
+	    BigDecimal insurance      = BigDecimal.ZERO;
+	    BigDecimal dangerousGoods = BigDecimal.ZERO;
+	    BigDecimal securityFee    = BigDecimal.ZERO;
+	    BigDecimal longGoods      = BigDecimal.ZERO;
 
-		BigDecimal tailLiftSurcharge = BigDecimal.ZERO; // Hebebühnenzuschlag / TailLift
-		BigDecimal liftingPlatformSurcharge = BigDecimal.ZERO; // kept 0 to avoid duplication
+	    BigDecimal tailLiftSurcharge         = BigDecimal.ZERO; // Hebebühnenzuschlag / TailLift
+	    BigDecimal liftingPlatformSurcharge  = BigDecimal.ZERO; // kept 0 to avoid duplication
 
-		BigDecimal portiPapiere = BigDecimal.ZERO;
-		BigDecimal palletExchange = BigDecimal.ZERO;
+	    BigDecimal portiPapiere   = BigDecimal.ZERO;
+	    BigDecimal palletExchange = BigDecimal.ZERO;
 
-		// Customs
-		BigDecimal custom1 = BigDecimal.ZERO;
-		BigDecimal custom2 = BigDecimal.ZERO;
-		BigDecimal custom3 = BigDecimal.ZERO;
-		BigDecimal custom4 = BigDecimal.ZERO;
-		BigDecimal custom5 = BigDecimal.ZERO;
+	    // Customs
+	    BigDecimal custom1 = BigDecimal.ZERO;
+	    BigDecimal custom2 = BigDecimal.ZERO;
+	    BigDecimal custom3 = BigDecimal.ZERO;
+	    BigDecimal custom4 = BigDecimal.ZERO;
+	    BigDecimal custom5 = BigDecimal.ZERO;
 
-		if (hasSumRows) {
-			// ---------- SUM ROW PATH ----------
-			Map<String, BigDecimal> extrasFromSum = aggregateExtrasFromSumRows(rowsForTotals);
+	    if (hasSumRows) {
+	        // ---------- SUM ROW PATH ----------
+	        Map<String, BigDecimal> extrasFromSum = aggregateExtrasFromSumRows(rowsForTotals);
 
-			// Dedicated fields
-			expressNextDay = extrasFromSum.getOrDefault(normKey("ExpressNextDay"), BigDecimal.ZERO);
-			express12 = extrasFromSum.getOrDefault(normKey("Express12"), BigDecimal.ZERO);
-			express10 = extrasFromSum.getOrDefault(normKey("Express10"), BigDecimal.ZERO);
-			express8 = extrasFromSum.getOrDefault(normKey("Express8"), BigDecimal.ZERO);
+	        // Dedicated fields
+	        expressNextDay = extrasFromSum.getOrDefault(normKey("ExpressNextDay"), BigDecimal.ZERO);
+	        express12      = extrasFromSum.getOrDefault(normKey("Express12"), BigDecimal.ZERO);
+	        express10      = extrasFromSum.getOrDefault(normKey("Express10"), BigDecimal.ZERO);
+	        express8       = extrasFromSum.getOrDefault(normKey("Express8"), BigDecimal.ZERO);
 
-			phoneAvis = firstNonNull(extrasFromSum.get(normKey("PhoneAvis")),
-					extrasFromSum.get(normKey("Telefonisches Avis")));
-			fixtermin = extrasFromSum.getOrDefault(normKey("Fixtermin"), BigDecimal.ZERO);
-			emailAvis = firstNonNull(extrasFromSum.get(normKey("EmailAvis")),
-					extrasFromSum.get(normKey("E-Mail Avis")));
-			bookingInAvis = firstNonNull(extrasFromSum.get(normKey("BookingInAvis")),
-					extrasFromSum.get(normKey("Booking in Avis")));
-			shortWeekSurcharge = firstNonNull(extrasFromSum.get(normKey("Kurzwochenzuschlag")),
-					extrasFromSum.get(normKey("ShortWeekSurcharge")));
+	        phoneAvis = firstNonNull(extrasFromSum.get(normKey("PhoneAvis")),
+	                                 extrasFromSum.get(normKey("Telefonisches Avis")));
+	        fixtermin  = extrasFromSum.getOrDefault(normKey("Fixtermin"), BigDecimal.ZERO);
+	        emailAvis  = firstNonNull(extrasFromSum.get(normKey("EmailAvis")),
+	                                  extrasFromSum.get(normKey("E-Mail Avis")));
+	        bookingInAvis = firstNonNull(extrasFromSum.get(normKey("BookingInAvis")),
+	                                     extrasFromSum.get(normKey("Booking in Avis")));
+	        shortWeekSurcharge = firstNonNull(extrasFromSum.get(normKey("Kurzwochenzuschlag")),
+	                                          extrasFromSum.get(normKey("ShortWeekSurcharge")));
 
-			insurance = firstNonNull(extrasFromSum.get(normKey("Versicherung")),
-					extrasFromSum.get(normKey("Insurance")));
-			dangerousGoods = firstNonNull(extrasFromSum.get(normKey("Gefahrgutzuschlag")),
-					extrasFromSum.get(normKey("DangerousGoodsSurcharge")));
-			securityFee = firstNonNull(extrasFromSum.get(normKey("SecurityFee")),
-					extrasFromSum.get(normKey("Security Fee")));
-			longGoods = firstNonNull(extrasFromSum.get(normKey("Langgutzuschlag")),
-					extrasFromSum.get(normKey("LongGoodsSurcharge")));
+	        insurance      = firstNonNull(extrasFromSum.get(normKey("Versicherung")),
+	                                      extrasFromSum.get(normKey("Insurance")));
+	        dangerousGoods = firstNonNull(extrasFromSum.get(normKey("Gefahrgutzuschlag")),
+	                                      extrasFromSum.get(normKey("DangerousGoodsSurcharge")));
+	        securityFee    = firstNonNull(extrasFromSum.get(normKey("SecurityFee")),
+	                                      extrasFromSum.get(normKey("Security Fee")));
+	        longGoods      = firstNonNull(extrasFromSum.get(normKey("Langgutzuschlag")),
+	                                      extrasFromSum.get(normKey("LongGoodsSurcharge")));
 
-			tailLiftSurcharge = firstNonNull(extrasFromSum.get(normKey("Hebebühnenzuschlag")),
-					extrasFromSum.get(normKey("Hebebuehnenzuschlag")), extrasFromSum.get(normKey("TailLiftSurcharge")));
-			// liftingPlatformSurcharge intentionally left ZERO to avoid double mapping
+	        tailLiftSurcharge = firstNonNull(extrasFromSum.get(normKey("Hebebühnenzuschlag")),
+	                                         extrasFromSum.get(normKey("Hebebuehnenzuschlag")),
+	                                         extrasFromSum.get(normKey("TailLiftSurcharge")));
+	        // liftingPlatformSurcharge intentionally left ZERO to avoid double mapping
 
-			portiPapiere = firstNonNull(extrasFromSum.get(normKey("PortiPapiere")),
-					extrasFromSum.get(normKey("Porti/Papiere")));
+	        portiPapiere = firstNonNull(extrasFromSum.get(normKey("PortiPapiere")),
+	                                    extrasFromSum.get(normKey("Porti/Papiere")));
 
-			// Palettentausch from sum row extraCosts
-			palletExchange = firstNonNull(extrasFromSum.get(normKey("Palettentausch")),
-					extrasFromSum.get(normKey("PalletExchange")));
+	        // Palettentausch from sum row extraCosts
+	        palletExchange = firstNonNull(extrasFromSum.get(normKey("Palettentausch")),
+	                                      extrasFromSum.get(normKey("PalletExchange")));
 
-			// Consume known keys; leftovers -> customs
-			java.util.Set<String> consumed = new java.util.HashSet<>(java.util.Arrays.asList(
-					// express family
-					normKey("ExpressNextDay"), normKey("Express12"), normKey("Express10"), normKey("Express8"),
-					// avis/fixtermin
-					normKey("PhoneAvis"), normKey("Telefonisches Avis"), normKey("Fixtermin"), normKey("EmailAvis"),
-					normKey("E-Mail Avis"), normKey("BookingInAvis"), normKey("Booking in Avis"),
-					// short week
-					normKey("Kurzwochenzuschlag"), normKey("ShortWeekSurcharge"),
-					// typical extras
-					normKey("Versicherung"), normKey("Insurance"), normKey("Gefahrgutzuschlag"),
-					normKey("DangerousGoodsSurcharge"), normKey("SecurityFee"), normKey("Security Fee"),
-					normKey("Langgutzuschlag"), normKey("LongGoodsSurcharge"), normKey("Hebebühnenzuschlag"),
-					normKey("Hebebuehnenzuschlag"), normKey("TailLiftSurcharge"), normKey("PortiPapiere"),
-					normKey("Porti/Papiere"), normKey("Palettentausch"), normKey("PalletExchange"),
-					// ignore if present
-					normKey("Toll"), normKey("Diesel")));
+	        // Consume known keys; leftovers -> customs
+	        java.util.Set<String> consumed = new java.util.HashSet<>(java.util.Arrays.asList(
+	            // express family
+	            normKey("ExpressNextDay"), normKey("Express12"), normKey("Express10"), normKey("Express8"),
+	            // avis/fixtermin
+	            normKey("PhoneAvis"), normKey("Telefonisches Avis"), normKey("Fixtermin"), normKey("EmailAvis"),
+	            normKey("E-Mail Avis"), normKey("BookingInAvis"), normKey("Booking in Avis"),
+	            // short week
+	            normKey("Kurzwochenzuschlag"), normKey("ShortWeekSurcharge"),
+	            // typical extras
+	            normKey("Versicherung"), normKey("Insurance"), normKey("Gefahrgutzuschlag"),
+	            normKey("DangerousGoodsSurcharge"), normKey("SecurityFee"), normKey("Security Fee"),
+	            normKey("Langgutzuschlag"), normKey("LongGoodsSurcharge"), normKey("Hebebühnenzuschlag"),
+	            normKey("Hebebuehnenzuschlag"), normKey("TailLiftSurcharge"), normKey("PortiPapiere"),
+	            normKey("Porti/Papiere"), normKey("Palettentausch"), normKey("PalletExchange"),
+	            // ignore if present
+	            normKey("Toll"), normKey("Diesel")
+	        ));
 
-			java.util.List<Map.Entry<String, BigDecimal>> leftovers = extrasFromSum.entrySet().stream()
-					.filter(e -> e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) != 0)
-					.filter(e -> !consumed.contains(e.getKey())).sorted(java.util.Map.Entry.comparingByKey()).toList();
+	        java.util.List<Map.Entry<String, BigDecimal>> leftovers = extrasFromSum.entrySet().stream()
+	            .filter(e -> e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) != 0)
+	            .filter(e -> !consumed.contains(e.getKey())) // keys in extrasFromSum are normalized already
+	            .sorted(java.util.Map.Entry.comparingByKey())
+	            .toList();
 
-			BigDecimal[] customs = distributeToCustomsFromIndex(leftovers, 0 /* fill custom1..5 */);
-			custom1 = customs[0];
-			custom2 = customs[1];
-			custom3 = customs[2];
-			custom4 = customs[3];
-			custom5 = customs[4];
+	        BigDecimal[] customs = distributeToCustomsFromIndex(leftovers, 0 /* fill custom1..5 */);
+	        custom1 = customs[0];
+	        custom2 = customs[1];
+	        custom3 = customs[2];
+	        custom4 = customs[3];
+	        custom5 = customs[4];
 
-			if (leftovers.size() > 5) {
-				log.warn(
-						"Shipment {}: {} extra-cost terms beyond dedicated fields; {} placed into custom1..5; {} dropped. Terms: {}",
-						shipmentId, leftovers.size(), Math.min(5, leftovers.size()), Math.max(0, leftovers.size() - 5),
-						leftovers);
-			} else if (!leftovers.isEmpty()) {
-				log.info("Shipment {}: extras mapped to customs: {}", shipmentId, leftovers);
-			}
+	        if (leftovers.size() > 5) {
+	            log.warn("Shipment {}: {} extra-cost terms beyond dedicated fields; {} placed into custom1..5; {} dropped. Terms: {}",
+	                    shipmentId, leftovers.size(), Math.min(5, leftovers.size()), Math.max(0, leftovers.size() - 5), leftovers);
+	        } else if (!leftovers.isEmpty()) {
+	            log.info("Shipment {}: extras mapped to customs: {}", shipmentId, leftovers);
+	        }
 
-		} else {
-			// ---------- NO SUM ROW PATH ----------
-			Map<String, Object> extraCostsCatalog = (summary != null) ? summary.getFetchedShipperExtraCosts() : null;
-			String country = resolveCountry(allRows);
+	    } else {
+	        // ---------- NO SUM ROW PATH ----------
+	        Map<String, Object> extraCostsCatalog = (summary != null) ? summary.getFetchedShipperExtraCosts() : null;
+	        String country = resolveCountry(allRows);
 
-			// Express family: prefer per-row extraCosts; fallback to catalog term + flag
-			expressNextDay = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpressNextDay, extraCostsCatalog,
-					country, "ExpressNextDay", "Express Next Day");
-			express12 = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress12, extraCostsCatalog, country,
-					"Express12", "Express 12:00 Uhr");
-			express10 = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress10, extraCostsCatalog, country,
-					"Express10", "Express 10:00 Uhr");
-			express8 = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress8, extraCostsCatalog, country,
-					"Express8", "Express 08:00 Uhr");
+	        // Express family: prefer per-row extraCosts; fallback to catalog term + flag
+	        expressNextDay = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpressNextDay, extraCostsCatalog, country,
+	                                               "ExpressNextDay", "Express Next Day");
+	        express12      = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress12, extraCostsCatalog, country,
+	                                               "Express12", "Express 12:00 Uhr");
+	        express10      = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress10, extraCostsCatalog, country,
+	                                               "Express10", "Express 10:00 Uhr");
+	        express8       = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getExpress8, extraCostsCatalog, country,
+	                                               "Express8", "Express 08:00 Uhr");
 
-			phoneAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getPhoneAvis, extraCostsCatalog, country,
-					"PhoneAvis", "Telefonisches Avis");
-			fixtermin = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getFixtermin, extraCostsCatalog, country,
-					"Fixtermin");
-			emailAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getEmailAvis, extraCostsCatalog, country,
-					"EmailAvis", "E-Mail Avis");
-			bookingInAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getBookingInAvis, extraCostsCatalog,
-					country, "BookingInAvis", "Booking in Avis");
-			shortWeekSurcharge = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getShortWeekSurcharge,
-					extraCostsCatalog, country, "Kurzwochenzuschlag", "ShortWeekSurcharge");
+	        phoneAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getPhoneAvis, extraCostsCatalog, country,
+	                                          "PhoneAvis", "Telefonisches Avis");
+	        fixtermin = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getFixtermin, extraCostsCatalog, country,
+	                                          "Fixtermin");
+	        emailAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getEmailAvis, extraCostsCatalog, country,
+	                                          "EmailAvis", "E-Mail Avis");
+	        bookingInAvis = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getBookingInAvis, extraCostsCatalog, country,
+	                                              "BookingInAvis", "Booking in Avis");
+	        shortWeekSurcharge = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getShortWeekSurcharge, extraCostsCatalog, country,
+	                                                   "Kurzwochenzuschlag", "ShortWeekSurcharge");
 
-			insurance = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getInsurance, extraCostsCatalog, country,
-					"Versicherung", "Insurance");
-			dangerousGoods = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getDangerousGoodsSurcharge,
-					extraCostsCatalog, country, "Gefahrgutzuschlag", "DangerousGoodsSurcharge");
-			securityFee = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getSecurityFee, extraCostsCatalog,
-					country, "SecurityFee", "Security Fee");
-			longGoods = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getLongGoodsSurcharge, extraCostsCatalog,
-					country, "LongGoodsSurcharge", "Langgutzuschlag");
+	        insurance = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getInsurance, extraCostsCatalog, country,
+	                                          "Versicherung", "Insurance");
+	        dangerousGoods = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getDangerousGoodsSurcharge, extraCostsCatalog, country,
+	                                               "Gefahrgutzuschlag", "DangerousGoodsSurcharge");
+	        securityFee = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getSecurityFee, extraCostsCatalog, country,
+	                                            "SecurityFee", "Security Fee");
+	        longGoods = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getLongGoodsSurcharge, extraCostsCatalog, country,
+	                                          "LongGoodsSurcharge", "Langgutzuschlag");
 
-			// Tail lift -> map to tailLiftSurcharge; keep liftingPlatformSurcharge = 0
-			tailLiftSurcharge = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getTailLiftSurcharge,
-					extraCostsCatalog, country, "Hebebühnenzuschlag", "TailLiftSurcharge");
+	        // Tail lift -> map to tailLiftSurcharge; keep liftingPlatformSurcharge = 0
+	        tailLiftSurcharge = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getTailLiftSurcharge, extraCostsCatalog, country,
+	                                                  "Hebebühnenzuschlag", "TailLiftSurcharge");
 
-			portiPapiere = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getPortiPapiere, extraCostsCatalog,
-					country, "Porti/Papiere", "PortiPapiere");
+	        portiPapiere = sumByExtraCostsOrFlag(allRows, ShipmentItemDocument::getPortiPapiere, extraCostsCatalog, country,
+	                                             "Porti/Papiere", "PortiPapiere");
 
-			// Palettentausch: special FP logic (prevents double counting vs. per-row map)
-			palletExchange = computePalletExchange(extraCostsCatalog, country, allRows);
+	        // Palettentausch: special FP logic (prevents double counting vs. per-row map)
+	        palletExchange = computePalletExchange(extraCostsCatalog, country, allRows);
 
-			// Unknown extras from per-row extraCosts -> customs
-			java.util.Set<String> known = new java.util.HashSet<>(java.util.Arrays.asList(
-					// explicit modeled keys we already consumed
-					"ExpressNextDay", "Express12", "Express10", "Express8", "PhoneAvis", "Telefonisches Avis",
-					"Fixtermin", "EmailAvis", "E-Mail Avis", "BookingInAvis", "Booking in Avis", "Kurzwochenzuschlag",
-					"ShortWeekSurcharge", "Versicherung", "Insurance", "Gefahrgutzuschlag", "DangerousGoodsSurcharge",
-					"SecurityFee", "Security Fee", "LongGoodsSurcharge", "Langgutzuschlag", "Hebebühnenzuschlag",
-					"Hebebuehnenzuschlag", "TailLiftSurcharge", "Porti/Papiere", "PortiPapiere", "Palettentausch",
-					"PalletExchange",
-					// ignore if present
-					"Toll", "Diesel"));
-			java.util.List<Map.Entry<String, BigDecimal>> unknowns = collectUnknownExtrasFromBaseRows(allRows, known);
-			BigDecimal[] customs = distributeToCustomsFromIndex(unknowns, 0 /* fill custom1..5 */);
-			custom1 = customs[0];
-			custom2 = customs[1];
-			custom3 = customs[2];
-			custom4 = customs[3];
-			custom5 = customs[4];
+	        // Unknown extras from per-row extraCosts -> customs
+	        // CHANGED: Build RAW known list then NORMALIZE before passing to collector (to prevent leaks into custom1/2)
+	        java.util.Set<String> knownRaw = new java.util.HashSet<>(java.util.Arrays.asList(
+	            // explicit modeled keys we already consumed
+	            "ExpressNextDay", "Express12", "Express10", "Express8",
+	            "PhoneAvis", "Telefonisches Avis",
+	            "Fixtermin", "EmailAvis", "E-Mail Avis",
+	            "BookingInAvis", "Booking in Avis",
+	            "Kurzwochenzuschlag", "ShortWeekSurcharge",
+	            "Versicherung", "Insurance", "Gefahrgutzuschlag", "DangerousGoodsSurcharge",
+	            "SecurityFee", "Security Fee", "LongGoodsSurcharge", "Langgutzuschlag",
+	            "Hebebühnenzuschlag", "Hebebuehnenzuschlag", "TailLiftSurcharge",
+	            "Porti/Papiere", "PortiPapiere",
+	            "Palettentausch", "PalletExchange",
+	            // ignore if present
+	            "Toll", "Diesel"
+	        ));
+	        // CHANGED: normalize known set
+	        java.util.Set<String> known = knownRaw.stream()
+	            .map(this::normKey)
+	            .collect(java.util.stream.Collectors.toSet());
 
-			if (unknowns.size() > 5) {
-				log.warn(
-						"Shipment {}: unknown extras beyond custom slots; {} placed into custom1..5; {} dropped. Terms: {}",
-						shipmentId, Math.min(5, unknowns.size()), Math.max(0, unknowns.size() - 5), unknowns);
-			} else if (!unknowns.isEmpty()) {
-				log.info("Shipment {}: unknown extras mapped to customs: {}", shipmentId, unknowns);
-			}
-		}
+	        java.util.List<Map.Entry<String, BigDecimal>> unknowns =
+	            collectUnknownExtrasFromBaseRows(allRows, known);
 
-		return Charges.builder().freightCostSystem(scale2(freightCostSystem)).dieselFee(scale2(dieselFee))
-				.tollCharge(scale2(tollCharge))
+	        BigDecimal[] customs = distributeToCustomsFromIndex(unknowns, 0 /* fill custom1..5 */);
+	        custom1 = customs[0];
+	        custom2 = customs[1];
+	        custom3 = customs[2];
+	        custom4 = customs[3];
+	        custom5 = customs[4];
 
-				.expressNextDay(scale2(expressNextDay)).express12(scale2(express12)).express10(scale2(express10))
-				.express8(scale2(express8))
+	        if (unknowns.size() > 5) {
+	            log.warn("Shipment {}: unknown extras beyond custom slots; {} placed into custom1..5; {} dropped. Terms: {}",
+	                     shipmentId, Math.min(5, unknowns.size()), Math.max(0, unknowns.size() - 5), unknowns);
+	        } else if (!unknowns.isEmpty()) {
+	            log.info("Shipment {}: unknown extras mapped to customs: {}", shipmentId, unknowns);
+	        }
+	    }
 
-				.palletExchange(scale2(palletExchange)).phoneAvis(scale2(phoneAvis))
+	    return Charges.builder()
+	            .freightCostSystem(scale2(freightCostSystem))
+	            .dieselFee(scale2(dieselFee))
+	            .tollCharge(scale2(tollCharge))
 
-				// keep liftingPlatformSurcharge at 0 to avoid duplication with tailLift
-				.liftingPlatformSurcharge(scale2(liftingPlatformSurcharge)).tailLiftSurcharge(scale2(tailLiftSurcharge))
+	            .expressNextDay(scale2(expressNextDay))
+	            .express12(scale2(express12))
+	            .express10(scale2(express10))
+	            .express8(scale2(express8))
 
-				.fixtermin(scale2(fixtermin)).emailAvis(scale2(emailAvis)).bookingInAvis(scale2(bookingInAvis))
-				.shortWeekSurcharge(scale2(shortWeekSurcharge))
+	            .palletExchange(scale2(palletExchange))
+	            .phoneAvis(scale2(phoneAvis))
 
-				.insurance(scale2(insurance)).dangerousGoodsSurcharge(scale2(dangerousGoods))
-				.securityFee(scale2(securityFee)).longGoodsSurcharge(scale2(longGoods))
-				.portiPapiere(scale2(portiPapiere))
+	            // keep liftingPlatformSurcharge at 0 to avoid duplication with tailLift
+	            .liftingPlatformSurcharge(scale2(liftingPlatformSurcharge))
+	            .tailLiftSurcharge(scale2(tailLiftSurcharge))
 
-				.custom1(scale2(custom1)).custom2(scale2(custom2)).custom3(scale2(custom3)).custom4(scale2(custom4))
-				.custom5(scale2(custom5))
+	            .fixtermin(scale2(fixtermin))
+	            .emailAvis(scale2(emailAvis))
+	            .bookingInAvis(scale2(bookingInAvis))
+	            .shortWeekSurcharge(scale2(shortWeekSurcharge))
 
-				.currency(currency).build();
+	            .insurance(scale2(insurance))
+	            .dangerousGoodsSurcharge(scale2(dangerousGoods))
+	            .securityFee(scale2(securityFee))
+	            .longGoodsSurcharge(scale2(longGoods))
+	            .portiPapiere(scale2(portiPapiere))
+
+	            .custom1(scale2(custom1))
+	            .custom2(scale2(custom2))
+	            .custom3(scale2(custom3))
+	            .custom4(scale2(custom4))
+	            .custom5(scale2(custom5))
+
+	            .currency(currency)
+	            .build();
 	}
 
 	// ---------------------------------------------------------------------
@@ -717,46 +754,56 @@ public class InvoiceReconciliationService {
 	 * Prefer per-row extraCosts numeric amount; otherwise compute via catalog+flag.
 	 * Only used in "no sum row" path, iterates base rows.
 	 */
-	private BigDecimal sumByExtraCostsOrFlag(List<ShipmentItemDocument> rows,
-			java.util.function.Function<ShipmentItemDocument, Boolean> flagGetter,
-			Map<String, Object> extraCostsCatalog, String country, String... aliases) {
-		if (rows == null || rows.isEmpty())
-			return BigDecimal.ZERO;
+	/**
+	 * Prefer per-row extraCosts numeric amount; otherwise compute via catalog+flag.
+	 * Only used in "no sum row" path, iterates base rows.
+	 */
+	private BigDecimal sumByExtraCostsOrFlag(
+	        List<ShipmentItemDocument> rows,
+	        java.util.function.Function<ShipmentItemDocument, Boolean> flagGetter,
+	        Map<String, Object> extraCostsCatalog,
+	        String country,
+	        String... aliases
+	) {
+	    if (rows == null || rows.isEmpty())
+	        return BigDecimal.ZERO;
 
-		// normalized alias keys for quick lookup
-		java.util.Set<String> aliasNorms = new java.util.HashSet<>();
-		for (String a : aliases)
-			aliasNorms.add(normKey(a));
+	    // normalized alias keys for quick lookup
+	    java.util.Set<String> aliasNorms = new java.util.HashSet<>();
+	    for (String a : aliases) aliasNorms.add(normKey(a));
 
-		BigDecimal sum = BigDecimal.ZERO;
+	    BigDecimal sum = BigDecimal.ZERO;
 
-		for (ShipmentItemDocument r : rows) {
-			if (r == null || Boolean.TRUE.equals(r.getIsConsolidatedSum()))
-				continue; // base rows only
+	    for (ShipmentItemDocument r : rows) {
+	        if (r == null || Boolean.TRUE.equals(r.getIsConsolidatedSum()))
+	            continue; // base rows only
 
-			// 1) Prefer explicit numeric values in the row's extraCosts
-			Object ecObj = r.getExtraCosts();
-			if (ecObj instanceof Map<?, ?> ec) {
-				for (Map.Entry<?, ?> e : ((Map<?, ?>) ec).entrySet()) {
-					String k = normKey(String.valueOf(e.getKey()));
-					if (!aliasNorms.contains(k))
-						continue;
-					BigDecimal v = toBigDecimal(e.getValue());
-					if (v != null && v.compareTo(BigDecimal.ZERO) != 0) {
-						sum = sum.add(scale2(v));
-					}
-				}
-			}
+	        boolean addedFromNumeric = false; // CHANGED: track if numeric was applied for this row/alias
 
-			// 2) If flag is set, also add catalog-derived amount (covers cases where map
-			// has no numeric)
-			if (Boolean.TRUE.equals(flagGetter.apply(r))) {
-				TermSpec spec = findTermSpec(extraCostsCatalog, country, aliases.length > 0 ? aliases[0] : null);
-				sum = sum.add(scale2(computeExtraAmountForRow(spec, nz(r.getPrice()))));
-			}
-		}
+	        // 1) Prefer explicit numeric values in the row's extraCosts
+	        Object ecObj = r.getExtraCosts();
+	        if (ecObj instanceof Map<?, ?> ec) {
+	            for (Map.Entry<?, ?> e : ((Map<?, ?>) ec).entrySet()) {
+	                String k = normKey(String.valueOf(e.getKey()));
+	                if (!aliasNorms.contains(k)) continue;
 
-		return scale2(sum);
+	                BigDecimal v = toBigDecimal(e.getValue());
+	                if (v != null && v.compareTo(BigDecimal.ZERO) != 0) {
+	                    sum = sum.add(scale2(v));
+	                    addedFromNumeric = true; // CHANGED: mark numeric added so we don't add flag-based too
+	                }
+	            }
+	        }
+
+	        // 2) Only if NO numeric value was found for this row/alias, use catalog+flag
+	        if (!addedFromNumeric && Boolean.TRUE.equals(flagGetter.apply(r))) {
+	            String primaryAlias = (aliases != null && aliases.length > 0) ? aliases[0] : null;
+	            TermSpec spec = findTermSpec(extraCostsCatalog, country, primaryAlias);
+	            sum = sum.add(scale2(computeExtraAmountForRow(spec, nz(r.getPrice()))));
+	        }
+	    }
+
+	    return scale2(sum);
 	}
 
 	/**

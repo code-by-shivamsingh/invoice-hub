@@ -1,4 +1,3 @@
-
 package com.jokati.invoice.model;
 
 import java.util.Map;
@@ -11,13 +10,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Diesel floater matrix persisted separately (if you use this collection). Keys
+ * may nest years/months → values; importer/service must ensure Mongo-safe keys.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Document(collection = "diesel-floater")
 public class DieselFloater {
-    @Id
-    private String id;
-    private Map<String, Object> years; // Flexible structure for nested data
+	@Id
+	private String id;
+
+	/** Flexible nested structure: years -> months -> source/value maps, etc. */
+	private Map<String, Object> years;
 }
