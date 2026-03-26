@@ -1,24 +1,13 @@
-package com.jokati.invoice.model;
+package com.jokati.invoice.dto;
 
-import java.time.Instant;
 import java.util.List;
-import org.bson.types.ObjectId;
-import org.springframework.data.annotation.*;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import com.jokati.invoice.dto.ModuleNode;
 import lombok.*;
 
-@Document(collection = "users")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
-
-    @Id
-    private ObjectId id;
-
+public class UserRequestDTO {
     private String userId;
     private String email;
     private String firstName;
@@ -33,14 +22,6 @@ public class User {
     private Boolean allowCreateUsers;
     private Integer maxCreatableUsers;
     private String status;
-
-    private String firebaseId;
-
-    @CreatedDate
-    private Instant createdAt;
-
-    @LastModifiedDate
-    private Instant updatedAt;
 
     // ✅ Add this field
     private String createdBy;

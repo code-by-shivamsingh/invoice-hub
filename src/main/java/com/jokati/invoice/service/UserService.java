@@ -1,131 +1,149 @@
-
 package com.jokati.invoice.service;
 
-import java.util.Map;
-
 import org.bson.types.ObjectId;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.jokati.invoice.dto.UserPatchRequestDTO;
-import com.jokati.invoice.dto.UserResponseDTO;
+import com.jokati.invoice.DuplicateUserException;
+import com.jokati.invoice.dto.*;
 import com.jokati.invoice.model.User;
 import com.jokati.invoice.repository.UserRepository;
+import com.mongodb.DuplicateKeyException;
+import com.mongodb.MongoWriteException;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-//import lombok.var;
+
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository repository;
-
-    public UserResponseDTO findFirstByFirebaseId(String firebaseId) {
-        var list = repository.findByFirebaseId(firebaseId);
-        if (list == null || list.isEmpty()) return null;
-        var user = list.get(0);
-        return toResponseDTO(user);
-    }
-
-    /**
-     * Patch user by either firebaseId or userId.
-     * Returns a result containing http status and the loggedIn flag (mirroring Node).
-     */
-    @Transactional
-    public PatchResult patchUser(UserPatchRequestDTO request) {
-        boolean loggedIn = false;
-
-        // Validate IDs
-        String firebaseId = request.getId() != null ? request.getId().getFirebaseId() : null;
-        String userId = request.getId() != null ? request.getId().getUserId() : null;
-
-        if ((firebaseId == null || firebaseId.isBlank()) && (userId == null || userId.isBlank())) {
-            // Node returns 401 { loggedIn: false } when no ID is provided
-            return new PatchResult(401, false);
-        }
-
-        // Select target user
-        User target = null;
-        if (firebaseId != null && !firebaseId.isBlank()) {
-            var matches = repository.findByFirebaseId(firebaseId);
-            if (!matches.isEmpty()) {
-                target = matches.get(0);
+    private final BCryptPasswordEncoder passwordEncoder;
+ // ✅ CREATE USER
+    public UserResponseDTO createUser(UserRequestDTO dto) {
+        try {
+            // Password validation
+            if (dto.getPassword() == null || dto.getPassword().isBlank()) {
+                throw new IllegalArgumentException("Password must be provided");
             }
-        } else if (userId != null && !userId.isBlank()) {
-            var id = new ObjectId(userId);
-            target = repository.findById(id).orElse(null);
-        }
-
-        if (target == null) {
-            // Node returns 401 when no document found
-            return new PatchResult(401, false);
-        }
-
-        // Apply updated fields (dynamic map, similar to Node's {strict:false})
-        applyUpdates(target, request.getUpdatedFields());
-
-        // Save and return loggedIn flag
-        var saved = repository.save(target);
-        loggedIn = Boolean.TRUE.equals(saved.getLoggedIn());
-
-        return new PatchResult(200, loggedIn);
-    }
-
-    /* -------- helpers -------- */
-
-    private void applyUpdates(User user, Map<String, Object> updatedFields) {
-        if (updatedFields == null || updatedFields.isEmpty()) return;
-
-        updatedFields.forEach((key, value) -> {
-            switch (key) {
-                case "firebaseId" -> user.setFirebaseId(asString(value));
-                case "email" -> user.setEmail(asString(value));
-                case "company" -> user.setCompany(asString(value));
-                case "firstName" -> user.setFirstName(asString(value));
-                case "lastName" -> user.setLastName(asString(value));
-                case "loggedIn" -> user.setLoggedIn(asBoolean(value));
-                case "created" -> user.setCreated(asInstant(value));
-                default -> {
-                    // Ignore unknown fields or extend with extra map if you need strict:false behavior
-                }
+            int len = dto.getPassword().length();
+            if (len < 6 || len > 8) {
+                throw new IllegalArgumentException("Password must be between 6 and 8 characters");
             }
-        });
+
+            User user = User.builder()
+                    .userId(dto.getUserId())
+                    .email(dto.getEmail() != null ? dto.getEmail().toLowerCase() : null)
+                    .firstName(dto.getFirstName())
+                    .lastName(dto.getLastName())
+                    .phone(dto.getPhone())
+                    .role(dto.getRole())
+                    .companyId(dto.getCompanyId())
+                    .modules(dto.getModules())
+                    .allowCreateUsers(dto.getAllowCreateUsers())
+                    .maxCreatableUsers(dto.getMaxCreatableUsers())
+                    .status(dto.getStatus()) 
+                    .password(passwordEncoder.encode(dto.getPassword())) 
+                    .createdBy(dto.getCreatedBy())
+                    .build();
+
+            User savedUser = repository.save(user);
+            return toDTO(savedUser);
+
+        } catch (Exception ex) {
+            if (ex instanceof org.springframework.dao.DuplicateKeyException ||
+                ex instanceof org.springframework.dao.DataIntegrityViolationException ||
+                (ex.getCause() != null && ex.getCause() instanceof MongoWriteException)) {
+                throw new DuplicateUserException("UserId or Email already exists");
+            }
+            throw ex;
+        }
+    }
+    // ✅ GET ALL USERS
+    public List<UserResponseDTO> getAllUsersList() {
+        return repository.findAll().stream()
+                .map(this::toDTO)
+                .toList();
     }
 
-    private String asString(Object v) { return v == null ? null : String.valueOf(v); }
-    private Boolean asBoolean(Object v) {
-        if (v == null) return null;
-        if (v instanceof Boolean b) return b;
-        return Boolean.parseBoolean(String.valueOf(v));
-    }
-    private java.time.Instant asInstant(Object v) {
-        if (v == null) return null;
-        if (v instanceof java.time.Instant i) return i;
-        try { return java.time.Instant.parse(String.valueOf(v)); } catch (Exception e) { return null; }
+    // ✅ Get user by ID, 
+    public UserResponseDTO getById(String id) {
+        User user = repository.findById(new ObjectId(id))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return toDTO(user);
     }
 
-    private UserResponseDTO toResponseDTO(User u) {
+    // ✅ UPDATE USER
+    public UserResponseDTO updateUser(String id, UserRequestDTO dto) {
+        User user = repository.findById(new ObjectId(id))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setEmail(dto.getEmail());
+        user.setFirstName(dto.getFirstName());
+        user.setLastName(dto.getLastName());
+        user.setPhone(dto.getPhone());
+        user.setRole(dto.getRole());
+        user.setCompanyId(dto.getCompanyId());
+        user.setModules(dto.getModules());
+        user.setAllowCreateUsers(dto.getAllowCreateUsers());
+        user.setMaxCreatableUsers(dto.getMaxCreatableUsers());
+        user.setStatus(dto.getStatus());
+
+        User updatedUser = repository.save(user);
+        return toDTO(updatedUser);
+    }
+
+    // ✅ DELETE USER
+    public boolean deleteUser(String id) {
+        ObjectId objId = new ObjectId(id);
+        if (!repository.existsById(objId)) return false;
+        repository.deleteById(objId);
+        return true;
+    }
+
+    // ✅ MAPPER: User -> UserResponseDTO
+    private UserResponseDTO toDTO(User u) {
+        // Recursive copy of modules
+        List<ModuleNode> modules = null;
+        if (u.getModules() != null) {
+            modules = u.getModules().stream()
+                    .map(this::copyModule) 
+                    .toList();
+        }
+
         return UserResponseDTO.builder()
                 .id(u.getId() != null ? u.getId().toHexString() : null)
-                .firebaseId(u.getFirebaseId())
+                .userId(u.getUserId())
                 .email(u.getEmail())
-                .company(u.getCompany())
                 .firstName(u.getFirstName())
                 .lastName(u.getLastName())
-                .loggedIn(Boolean.TRUE.equals(u.getLoggedIn()))
-                .created(u.getCreated())
+                .phone(u.getPhone())
+                .role(u.getRole())
+                .companyId(u.getCompanyId())
+                .modules(modules)
+                .allowCreateUsers(u.getAllowCreateUsers())
+                .maxCreatableUsers(u.getMaxCreatableUsers())
+                .status(u.getStatus())
                 .createdAt(u.getCreatedAt())
                 .updatedAt(u.getUpdatedAt())
+                .createdBy(u.getCreatedBy())
                 .build();
     }
 
-    @Getter
-    @AllArgsConstructor
-    public static class PatchResult {
-        private final int status;
-        private final boolean loggedIn;
+    // ✅ Recursive copy of ModuleNode
+    private ModuleNode copyModule(ModuleNode m) {
+        List<ModuleNode> options = null;
+        if (m.getOptions() != null) {
+            options = m.getOptions().stream()
+                    .map(this::copyModule)
+                    .toList();
+        }
+        return ModuleNode.builder()
+                .value(m.getValue())
+                .options(options)
+                .build();
     }
 }

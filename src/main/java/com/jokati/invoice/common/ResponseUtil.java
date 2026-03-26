@@ -118,6 +118,13 @@ public final class ResponseUtil {
                 .headers(defaultHeaders())
                 .body(successBody(HttpStatus.OK.value(), message, Collections.emptyMap()));
     }
+    
+    /** ✅ NEW: 200 OK with message only (data = null) */
+    public static ResponseEntity<ApiResponse<Object>> ok(String message) {
+        return ResponseEntity.ok()
+                .headers(defaultHeaders())
+                .body(successBody(HttpStatus.OK.value(), message, null));
+    }
 
     /** Custom status with arbitrary data (envelope uses T=Object). */
     public static ResponseEntity<ApiResponse<Object>> withStatusObject(HttpStatus status, String message, Object data) {

@@ -1,31 +1,21 @@
-
 package com.jokati.invoice.dto;
 
 import java.util.Map;
 
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-/**
- * Mirrors Node PATCH body:
- * {
- *   "id": { "firebaseId": "...", "userId": "..." },
- *   "updatedFields": { ... }
- * }
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class UserPatchRequestDTO {
 
-    @NotNull
+    @NotNull(message = "id is required")
     private IdDTO id;
 
-    @NotNull
+    @NotEmpty(message = "updatedFields cannot be empty")
     private Map<String, Object> updatedFields;
 
     @Data
@@ -33,7 +23,7 @@ public class UserPatchRequestDTO {
     @AllArgsConstructor
     @Builder
     public static class IdDTO {
-        private String firebaseId;  // optional
-        private String userId;      // optional (hex string of ObjectId)
+        private String firebaseId;
+        private String userId;
     }
 }

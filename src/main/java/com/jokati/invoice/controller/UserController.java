@@ -1,95 +1,96 @@
-
 package com.jokati.invoice.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.jokati.invoice.common.ApiResponse;
-import com.jokati.invoice.common.ResponseUtil;
-import com.jokati.invoice.dto.UserLoggedInResponseDTO;
-import com.jokati.invoice.dto.UserPatchRequestDTO;
-import com.jokati.invoice.dto.UserResponseDTO;
+import com.jokati.invoice.dto.*;
 import com.jokati.invoice.service.UserService;
 
-import io.swagger.v3.oas.annotations.Operation;
-// Avoid importing io.swagger.v3.oas.annotations.responses.ApiResponse due to name collision
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "User", description = "APIs to manage Jokati users")
+import java.util.List;
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/v1/user")
+@RequestMapping("/api/v1/users-create")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService service;
-    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
-    @Operation(
-        summary = "Get user by firebaseId",
-        description = "Returns the first matching user document by firebaseId. Returns 204 if firebaseId is missing/empty.",
-        responses = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse( // fully-qualified to avoid collision
-                responseCode = "200",
-                description = "Found",
-                content = @Content(schema = @Schema(implementation = UserResponseDTO.class))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "204",
-                description = "No Content"
-            )
+    // CREATE USER
+    @PostMapping
+    public ResponseEntity<?> create(@RequestBody UserRequestDTO dto) {
+        try {
+            UserResponseDTO createdUser = service.createUser(dto);
+            return ResponseEntity.ok(Map.of("users", List.of(createdUser)));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(409) 
+                    .body(Map.of(
+                            "success", false,
+                            "message", ex.getMessage()
+                    ));
         }
-    )
+    }
+    // GET ALL USERS
     @GetMapping
-    public ResponseEntity<ApiResponse<Object>> getByFirebaseId(@RequestParam(required = false) String firebaseId) {
-        log.info("Request getByFirebaseId : {}", firebaseId);
-        if (firebaseId == null || firebaseId.isBlank()) {
-            // Mirror Node behavior (returns 204 with undefined)
-            return ResponseUtil.noContent("No Content");
-        }
-        var user = service.findFirstByFirebaseId(firebaseId);
-        if (user == null) {
-            return ResponseUtil.noContent("No Content");
-        }
-        return ResponseUtil.ok(user, "User fetched successfully");
+    public ResponseEntity<Map<String, List<UserResponseDTO>>> getAll() {
+        List<UserResponseDTO> allUsers = service.getAllUsersList(); 
+        return ResponseEntity.ok(Map.of("users", allUsers));
     }
 
-    @Operation(
-        summary = "Patch user fields by firebaseId or userId",
-        description = "Accepts either firebaseId or userId, and a map of updatedFields. Returns { loggedIn } like the Node API, with 200 or 401.",
-        responses = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "200",
-                description = "Updated",
-                content = @Content(schema = @Schema(implementation = UserLoggedInResponseDTO.class))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "401",
-                description = "Unauthorized (missing id or user not found)"
-            )
+  
+    // ✅ GET USER BY ID
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable String id) {
+        try {
+            UserResponseDTO user = service.getById(id);
+            return ResponseEntity.ok(Map.of("users", List.of(user)));
+        } catch (RuntimeException ex) {
+            if ("User not found".equals(ex.getMessage())) {
+                return ResponseEntity.status(404)
+                        .body(Map.of(
+                                "success", false,
+                                "message", ex.getMessage()
+                        ));
+            }
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Unexpected server error"
+                    ));
         }
-    )
-    @PatchMapping
-    public ResponseEntity<ApiResponse<UserLoggedInResponseDTO>> patchUser(
-            @Valid @RequestBody UserPatchRequestDTO requestDTO) {
-        log.info("Request patchUser : {}", requestDTO);
+    }
 
-        var result = service.patchUser(requestDTO);
-        var body = new UserLoggedInResponseDTO(result.isLoggedIn());
+    // UPDATE USER
+    
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable String id,
+                                    @RequestBody UserRequestDTO dto) {
+        try {
+            UserResponseDTO updatedUser = service.updateUser(id, dto);
+            return ResponseEntity.ok(Map.of("users", List.of(updatedUser)));
+        } catch (RuntimeException ex) {
+            if ("User not found".equals(ex.getMessage())) {
+                return ResponseEntity.status(404)
+                        .body(Map.of(
+                                "success", false,
+                                "message", ex.getMessage()
+                        ));
+            }
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Unexpected server error"
+                    ));
+        }
+    }
 
-        // Mirror Node: status can be 200 or 401
-        HttpStatus status = (result.getStatus() == 200) ? HttpStatus.OK : HttpStatus.UNAUTHORIZED;
-        return ResponseUtil.withStatus(status, status == HttpStatus.OK ? "User patched" : "Unauthorized", body);
+    // DELETE USER
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> delete(@PathVariable String id) {
+        boolean deleted = service.deleteUser(id);
+        if (!deleted) return ResponseEntity.status(404).body("User not found");
+        return ResponseEntity.ok("User deleted successfully");
     }
 }

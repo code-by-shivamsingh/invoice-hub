@@ -1,26 +1,39 @@
-
 package com.jokati.invoice.dto;
 
 import java.time.Instant;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserResponseDTO {
-    private String id;
-    private String firebaseId;
+    
+    private String id;                 
+    private String userId;
     private String email;
-    private String company;
     private String firstName;
     private String lastName;
-    private Boolean loggedIn;
-    private Instant created;
-    private Instant createdAt; // from auditing if enabled
-    private Instant updatedAt; // from auditing if enabled
+    private String phone;
+    private String role;
+    private String companyId;
+
+    private List<ModuleNode> modules;   
+
+    private Boolean allowCreateUsers;
+    private Integer maxCreatableUsers;
+    private String status;
+
+    private Instant createdAt;         
+    private Instant updatedAt;
+
+    // ✅ Add this field
+    private String createdBy;
+
+	public String Password;
+		
+	   
 }
